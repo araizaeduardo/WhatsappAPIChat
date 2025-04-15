@@ -1,0 +1,85 @@
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Directorio de conversaciones (base de datos)
+conversations/
+*.json
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv/
+.ENV/
+.env/
+
+# Logs
+*.log
+logs/
+
+# Archivos de configuración local
+instance/
+.webassets-cache
+
+# Archivos de IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+*~
+
+# Archivos de Docker
+.dockerignore
+
+# Archivos de ngrok
+.ngrok/
+ngrok.yml
+
+# Archivos de certificados y claves
+*.pem
+*.key
+*.crt
+
+# Archivos de caché
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Archivos de base de datos SQLite
+*.sqlite
+*.sqlite3
+*.db

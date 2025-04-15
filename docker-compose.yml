@@ -1,0 +1,8 @@
+version: '3'
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command: http host.docker.internal:5000 --authtoken 3ifZzUv8XzmHyNAot4gCK_7frQvCB4h4vW6m1eP7kac
+    ports:
+      - "4040:4040"

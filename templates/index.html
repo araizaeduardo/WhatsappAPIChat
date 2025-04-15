@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de WhatsApp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .conversation-list {
+            height: calc(100vh - 150px);
+            overflow-y: auto;
+            border-right: 1px solid #dee2e6;
+        }
+        .message-container {
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .contact-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+        }
+        .contact-item:hover {
+            background-color: #f1f3f5;
+        }
+        .contact-item.active {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+        .message {
+            max-width: 75%;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            position: relative;
+        }
+        .received {
+            background-color: #f1f3f5;
+            float: left;
+            clear: both;
+            border-bottom-left-radius: 5px;
+        }
+        .sent {
+            background-color: #d1e7dd;
+            float: right;
+            clear: both;
+            border-bottom-right-radius: 5px;
+        }
+        .message-time {
+            font-size: 0.7rem;
+            color: #6c757d;
+            margin-top: 5px;
+            display: block;
+        }
+        .message-input {
+            border-radius: 20px;
+            padding-right: 50px;
+        }
+        .send-button {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center">Panel de Administración WhatsApp</h1>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Lista de conversaciones -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Conversaciones</h5>
+                    </div>
+                    <div class="conversation-list" id="conversationList">
+                        <!-- Las conversaciones se cargarán aquí dinámicamente -->
+                        <div class="text-center p-3 text-muted">
+                            Cargando conversaciones...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Área de mensajes -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0" id="currentContact">Selecciona una conversación</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="message-container" id="messageContainer">
+                            <div class="text-center text-muted">
+                                <p>Selecciona una conversación para ver los mensajes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <form id="messageForm" class="position-relative">
+                            <input type="text" class="form-control message-input" id="messageInput" placeholder="Escribe un mensaje..." disabled>
+                            <button type="submit" class="btn btn-primary send-button" id="sendButton" disabled>
+                                <i class="bi bi-send"></i>→
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar las conversaciones al iniciar
+            loadConversations();
+            
+            // Configurar el formulario de envío de mensajes
+            document.getElementById('messageForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const messageInput = document.getElementById('messageInput');
+                const message = messageInput.value.trim();
+                
+                if (message && currentPhoneNumber) {
+                    sendMessage(currentPhoneNumber, message);
+                    messageInput.value = '';
+                }
+            });
+        });
+        
+        let currentPhoneNumber = null;
+        
+        // Función para cargar las conversaciones
+        function loadConversations() {
+            fetch('/api/conversations')
+                .then(response => response.json())
+                .then(data => {
+                    const conversationList = document.getElementById('conversationList');
+                    conversationList.innerHTML = '';
+                    
+                    if (data.conversations && data.conversations.length > 0) {
+                        data.conversations.forEach(conversation => {
+                            const contactItem = document.createElement('div');
+                            contactItem.className = 'contact-item';
+                            contactItem.dataset.phoneNumber = conversation.phone_number;
+                            
+                            // Obtener el último mensaje para mostrar una vista previa
+                            let lastMessage = 'No hay mensajes';
+                            let lastTime = '';
+                            
+                            if (conversation.messages && conversation.messages.length > 0) {
+                                const lastMsg = conversation.messages[conversation.messages.length - 1];
+                                lastMessage = lastMsg.content.length > 30 ? 
+                                    lastMsg.content.substring(0, 30) + '...' : 
+                                    lastMsg.content;
+                                
+                                // Formatear la fecha
+                                const msgDate = new Date(lastMsg.timestamp);
+                                lastTime = msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            }
+                            
+                            contactItem.innerHTML = `
+                                <div class="d-flex justify-content-between">
+                                    <strong>${conversation.phone_number}</strong>
+                                    <small>${lastTime}</small>
+                                </div>
+                                <div class="text-muted">${lastMessage}</div>
+                            `;
+                            
+                            contactItem.addEventListener('click', function() {
+                                // Remover la clase active de todos los contactos
+                                document.querySelectorAll('.contact-item').forEach(item => {
+                                    item.classList.remove('active');
+                                });
+                                
+                                // Agregar la clase active al contacto seleccionado
+                                this.classList.add('active');
+                                
+                                // Cargar los mensajes de esta conversación
+                                currentPhoneNumber = this.dataset.phoneNumber;
+                                document.getElementById('currentContact').textContent = currentPhoneNumber;
+                                loadMessages(currentPhoneNumber);
+                                
+                                // Habilitar el envío de mensajes
+                                document.getElementById('messageInput').disabled = false;
+                                document.getElementById('sendButton').disabled = false;
+                            });
+                            
+                            conversationList.appendChild(contactItem);
+                        });
+                    } else {
+                        conversationList.innerHTML = '<div class="text-center p-3 text-muted">No hay conversaciones</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar las conversaciones:', error);
+                    document.getElementById('conversationList').innerHTML = 
+                        '<div class="text-center p-3 text-danger">Error al cargar las conversaciones</div>';
+                });
+        }
+        
+        // Función para cargar los mensajes de una conversación
+        function loadMessages(phoneNumber) {
+            fetch(`/api/conversations/${phoneNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    const messageContainer = document.getElementById('messageContainer');
+                    messageContainer.innerHTML = '';
+                    
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(message => {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = `message ${message.direction} clearfix`;
+                            
+                            // Formatear la fecha
+                            const msgDate = new Date(message.timestamp);
+                            const formattedTime = msgDate.toLocaleString();
+                            
+                            messageDiv.innerHTML = `
+                                <div>${message.content}</div>
+                                <span class="message-time">${formattedTime}</span>
+                            `;
+                            
+                            messageContainer.appendChild(messageDiv);
+                        });
+                        
+                        // Desplazar al final de los mensajes
+                        messageContainer.scrollTop = messageContainer.scrollHeight;
+                    } else {
+                        messageContainer.innerHTML = '<div class="text-center text-muted">No hay mensajes en esta conversación</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar los mensajes:', error);
+                    document.getElementById('messageContainer').innerHTML = 
+                        '<div class="text-center text-danger">Error al cargar los mensajes</div>';
+                });
+        }
+        
+        // Función para enviar un mensaje
+        function sendMessage(phoneNumber, message) {
+            fetch('/api/send-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    phone_number: phoneNumber,
+                    message: message
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Recargar los mensajes para mostrar el mensaje enviado
+                    loadMessages(phoneNumber);
+                } else {
+                    alert('Error al enviar el mensaje: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error al enviar el mensaje:', error);
+                alert('Error al enviar el mensaje');
+            });
+        }
+        
+        // Actualizar las conversaciones cada 30 segundos
+        setInterval(loadConversations, 30000);
+    </script>
+</body>
+</html>
