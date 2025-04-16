@@ -1,47 +1,66 @@
-# Kanban para Sistema de Mensajería WhatsApp
+# Kanban para Sistema de Mensajería WhatsApp para Agencia de Viajes
 
 ## Por Hacer
 
-### Fase 1: Estructura Básica
-- [ ] Crear una base de datos para almacenar mensajes y conversaciones
-- [ ] Diseñar esquema de base de datos para usuarios, mensajes y conversaciones
-- [ ] Implementar sistema de registro de usuarios
-- [ ] Crear interfaz de administración básica
+### Fase 1: Mejoras en Base de Datos
+- [ ] Migrar almacenamiento de conversaciones a una base de datos SQL
+- [ ] Implementar sistema de usuarios y autenticación para el panel de administración
+- [ ] Crear sistema de reportes y estadísticas de conversaciones
 
-### Fase 2: Mejoras en Procesamiento de Mensajes
-- [ ] Implementar análisis de intención del mensaje
-- [ ] Crear sistema de palabras clave y comandos
-- [ ] Desarrollar sistema de plantillas de respuesta
-- [ ] Implementar sistema de respuestas programadas
+### Fase 2: Mejoras en Funcionalidades de Viajes
+- [ ] Integrar sistema de reservas para tours
+- [ ] Implementar pasarela de pagos para reservas
+- [ ] Crear sistema de notificaciones para confirmaciones de reserva
+- [ ] Desarrollar sistema de recordatorios para viajes próximos
 
 ### Fase 3: Integraciones y Características Avanzadas
-- [ ] Integrar con sistema de IA para respuestas inteligentes
-- [ ] Implementar sistema de notificaciones
-- [ ] Crear sistema de etiquetado de conversaciones
-- [ ] Desarrollar análisis de sentimiento para mensajes
+- [ ] Integrar con sistema de IA para respuestas más inteligentes
+- [ ] Implementar análisis de sentimiento para mensajes
+- [ ] Crear sistema de etiquetado automático de conversaciones
+- [ ] Desarrollar integración con CRM
 
 ## En Progreso
+
+### Mejoras en Sistema de Respuestas
+- [ ] Ampliar base de datos de tours con más destinos
+- [ ] Mejorar algoritmo de búsqueda de tours
+- [ ] Implementar sistema de recomendaciones personalizadas
+- [ ] Mejorar manejo de errores y logging
+
+## Completado
+
+### Configuración Básica
+- [x] Configurar entorno de desarrollo
+- [x] Configurar ngrok para exponer servidor local
+- [x] Crear estructura básica del proyecto Flask
+- [x] Configurar variables de entorno
 
 ### Sistema Básico de WhatsApp API
 - [x] Configurar webhook de WhatsApp
 - [x] Implementar verificación de webhook
 - [x] Crear función para recibir mensajes
 - [x] Implementar función para enviar mensajes
-- [ ] Mejorar manejo de errores y logging
 
-## Completado
+### Sistema de Administración
+- [x] Crear interfaz web para administración
+- [x] Implementar visualización de conversaciones
+- [x] Desarrollar sistema para responder desde el panel
 
-- [x] Configurar entorno de desarrollo
-- [x] Configurar ngrok para exponer servidor local
-- [x] Crear estructura básica del proyecto Flask
-- [x] Configurar variables de entorno
+### Funcionalidades de Agencia de Viajes
+- [x] Crear base de datos de tours
+- [x] Implementar búsqueda de tours por destino
+- [x] Integrar API de Amadeus para búsqueda de vuelos
+- [x] Desarrollar comandos para consulta de tours y vuelos
 
 ## Backlog (Ideas Futuras)
 
 - [ ] Implementar sistema multiusuario para gestionar múltiples números de WhatsApp
-- [ ] Crear sistema de chatbots personalizables
-- [ ] Desarrollar integración con CRM
-- [ ] Implementar análisis estadístico de conversaciones
-- [ ] Crear sistema de automatización de campañas
-- [ ] Desarrollar integración con sistemas de pago
-- [ ] Implementar sistema de encuestas vía WhatsApp
+- [ ] Crear sistema de chatbots personalizables por destino turístico
+- [ ] Desarrollar integración con sistemas de gestión hotelera
+- [ ] Implementar análisis estadístico de destinos más consultados
+- [ ] Crear sistema de automatización de campañas de marketing
+- [ ] Desarrollar integración con sistemas de pago como PayPal y Stripe
+- [ ] Implementar sistema de encuestas de satisfacción post-viaje
+- [ ] Crear sistema de fidelización y puntos para viajeros frecuentes
+- [ ] Desarrollar integración con mapas y geolocalización
+- [ ] Implementar recomendaciones basadas en preferencias del usuario
