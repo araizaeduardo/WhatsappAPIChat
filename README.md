@@ -6,7 +6,7 @@ Un sistema completo para integrar la API de WhatsApp Business con un backend en 
 ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
-## 🌟 Características
+## 💬 Funcionalidades
 
 ### Funcionalidades de WhatsApp
 - ✅ Verificación de webhook de WhatsApp
@@ -20,18 +20,20 @@ Un sistema completo para integrar la API de WhatsApp Business con un backend en 
 - 📅 Manejo robusto de diferentes formatos de fecha
 
 ### Funcionalidades de Agencia de Viajes
-- 🏝️ Base de datos de tours y paquetes vacacionales
+- 🏝️ Base de datos SQLite para tours y paquetes vacacionales
+- 💻 Panel de administración CRUD para tours
 - ✈️ Integración con API de Amadeus para búsqueda de vuelos
 - 🔍 Búsqueda de tours por destino
 - 📅 Consulta de disponibilidad y precios
 - 💬 Comandos específicos para consultas de viajes
 
-## 📋 Requisitos
+## 🛠️ Tecnologías Utilizadas
 
-- Python 3.8+
-- Flask
-- Cuenta de WhatsApp Business API
-- Ngrok o un servicio similar para exponer el servidor local
+- **Backend**: Python, Flask
+- **Frontend**: HTML, CSS, JavaScript, Bootstrap 5, Font Awesome
+- **APIs**: WhatsApp Business API, Amadeus API
+- **Almacenamiento**: SQLite (tours), Archivos JSON (conversaciones)
+- **Despliegue**: Ngrok (para desarrollo)
 
 ## 🚀 Instalación
 
@@ -98,8 +100,47 @@ Desde aquí podrás:
 - Leer los mensajes de cada conversación
 - Enviar mensajes a los usuarios
 - Monitorear la actividad en tiempo real
+- Administrar tours y paquetes vacacionales
 
-## 📝 Estructura del proyecto
+## 💻 Interfaces de Administración
+
+El sistema incluye interfaces web para administrar tanto las conversaciones de WhatsApp como los tours y paquetes vacacionales.
+
+### Panel de Conversaciones
+
+Para acceder al panel principal, simplemente ejecuta la aplicación y visita `http://localhost:5000` en tu navegador.
+
+Desde este panel, puedes:
+
+- Ver todas las conversaciones activas
+- Leer los mensajes de cada conversación
+- Responder a los mensajes directamente
+- Recibir notificaciones en tiempo real de nuevos mensajes
+- Acceder al panel de administración de tours
+
+### Panel de Administración de Tours
+
+Para acceder al panel de tours, visita `http://localhost:5000/admin/tours` o haz clic en el botón "Administrar Tours" desde el panel principal.
+
+Desde este panel, puedes:
+
+- Ver todos los tours disponibles en una tabla ordenada
+- Añadir nuevos tours con un formulario intuitivo
+- Editar tours existentes
+- Eliminar tours con confirmación
+- Volver al panel principal de conversaciones
+
+## 💾 Base de datos
+
+### Conversaciones
+Actualmente, el sistema utiliza archivos JSON para almacenar las conversaciones. Cada conversación se guarda en un archivo separado en el directorio `conversations/`.
+
+### Tours y Paquetes Vacacionales
+Los tours y paquetes vacacionales se almacenan en una base de datos SQLite (`tours.db`). La estructura y funciones para interactuar con esta base de datos se encuentran en `tours_db.py`.
+
+La base de datos incluye funcionalidades CRUD completas (Crear, Leer, Actualizar, Eliminar) accesibles desde el panel de administración.
+
+## 📋 Estructura del proyecto
 
 ```
 whatsapp-flask-api/
@@ -139,6 +180,10 @@ El sistema reconoce comandos específicos para consultas de viajes:
 - `detalles tour [ID]`: Muestra detalles de un tour específico
 - `vuelos [origen] a [destino] [fecha]`: Busca vuelos disponibles
 - `vuelos [origen] a [destino] [fecha ida] [fecha regreso]`: Busca vuelos de ida y vuelta
+- `ayuda`: Muestra los comandos disponibles
+- `contacto`: Muestra la información de contacto de la agencia
+
+Los tours mostrados a través de estos comandos se obtienen directamente de la base de datos SQLite, por lo que cualquier cambio realizado en el panel de administración se reflejará inmediatamente en las respuestas del bot.
 
 ### Sistema de notificaciones
 
@@ -148,7 +193,6 @@ El panel de administración incluye un sistema completo de notificaciones para n
 - **Indicador de punto verde**: Muestra un punto verde pulsante junto a contactos con mensajes nuevos
 - **Borde izquierdo verde**: Resalta visualmente los contactos con mensajes sin leer
 - **Notificación de sonido**: Reproduce un sonido de alerta cuando llega un nuevo mensaje
-- **Titilación del título**: El título de la página parpadea para alertar sobre nuevos mensajes
 - **Notificaciones del navegador**: Muestra notificaciones del sistema cuando la página no está activa
 
 ### Interfaz de administración

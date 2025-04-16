@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Administración de Tours{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Administración de Tours</h1>
+            <p class="lead">Gestiona los tours y paquetes turísticos disponibles para los clientes.</p>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <a href="{{ url_for('new_tour') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Nuevo Tour
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Ubicación</th>
+                            <th>Duración</th>
+                            <th>Precio</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if tours %}
+                            {% for tour in tours %}
+                                <tr>
+                                    <td>{{ tour.id }}</td>
+                                    <td>{{ tour.name }}</td>
+                                    <td>{{ tour.location }}</td>
+                                    <td>{{ tour.duration }}</td>
+                                    <td>${{ tour.price }} {{ tour.currency }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('edit_tour', tour_id=tour.id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i> Editar
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="modal" data-bs-target="#deleteModal{{ tour.id }}">
+                                                <i class="fas fa-trash"></i> Eliminar
+                                            </button>
+                                        </div>
+
+                                        <!-- Modal de confirmación para eliminar -->
+                                        <div class="modal fade" id="deleteModal{{ tour.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ tour.id }}" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteModalLabel{{ tour.id }}">Confirmar eliminación</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        ¿Estás seguro de que deseas eliminar el tour <strong>{{ tour.name }}</strong>?
+                                                        <p class="text-danger mt-2">Esta acción no se puede deshacer.</p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <form action="{{ url_for('remove_tour', tour_id=tour.id) }}" method="POST">
+                                                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <p class="text-muted mb-0">No hay tours disponibles.</p>
+                                    <a href="{{ url_for('new_tour') }}" class="btn btn-primary mt-2">
+                                        <i class="fas fa-plus-circle"></i> Crear el primer tour
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Activar los tooltips de Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %}

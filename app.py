@@ -1,14 +1,18 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, flash
 import os
 import requests
 import json
 from dotenv import load_dotenv
 from message_handler import MessageHandler
+from tours_db import get_all_tours, get_tour_by_id, add_tour, update_tour, delete_tour
 
 # Cargar variables de entorno
 load_dotenv()
 
 app = Flask(__name__)
+
+# Configuración para mensajes flash
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'clave_secreta_predeterminada')
 
 # Inicializar el manejador de mensajes
 message_handler = MessageHandler()
@@ -18,9 +22,82 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'token_predeterminado')
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 WHATSAPP_PHONE_ID = os.getenv('WHATSAPP_PHONE_ID')
 
+# Ruta para la interfaz web
 @app.route('/')
 def index():
     return render_template('index.html')
+
+# Rutas para administración de tours
+@app.route('/admin/tours')
+def admin_tours():
+    tours = get_all_tours()
+    return render_template('admin_tours.html', tours=tours)
+
+@app.route('/admin/tours/new', methods=['GET', 'POST'])
+def new_tour():
+    if request.method == 'POST':
+        # Procesar los datos del formulario
+        tour_data = {
+            'name': request.form['name'],
+            'description': request.form['description'],
+            'duration': request.form['duration'],
+            'price': float(request.form['price']),
+            'currency': request.form['currency'],
+            'includes': request.form.getlist('includes'),
+            'location': request.form['location'],
+            'availability': request.form['availability'],
+            'tags': [tag.strip() for tag in request.form['tags'].split(',')]
+        }
+        
+        if add_tour(tour_data):
+            flash('Tour añadido correctamente', 'success')
+            return redirect(url_for('admin_tours'))
+        else:
+            flash('Error al añadir el tour', 'danger')
+    
+    return render_template('tour_form.html', tour=None, action='new')
+
+@app.route('/admin/tours/edit/<tour_id>', methods=['GET', 'POST'])
+def edit_tour(tour_id):
+    tour = get_tour_by_id(tour_id)
+    
+    if not tour:
+        flash('Tour no encontrado', 'danger')
+        return redirect(url_for('admin_tours'))
+    
+    if request.method == 'POST':
+        # Procesar los datos del formulario
+        tour_data = {
+            'name': request.form['name'],
+            'description': request.form['description'],
+            'duration': request.form['duration'],
+            'price': float(request.form['price']),
+            'currency': request.form['currency'],
+            'includes': request.form.getlist('includes'),
+            'location': request.form['location'],
+            'availability': request.form['availability'],
+            'tags': [tag.strip() for tag in request.form['tags'].split(',')]
+        }
+        
+        if update_tour(tour_id, tour_data):
+            flash('Tour actualizado correctamente', 'success')
+            return redirect(url_for('admin_tours'))
+        else:
+            flash('Error al actualizar el tour', 'danger')
+    
+    # Convertir la lista de tags a string para el formulario
+    tour['tags_string'] = ', '.join(tour['tags'])
+    
+    return render_template('tour_form.html', tour=tour, action='edit')
+
+@app.route('/admin/tours/delete/<tour_id>', methods=['POST'])
+def remove_tour(tour_id):
+    if delete_tour(tour_id):
+        flash('Tour eliminado correctamente', 'success')
+    else:
+        flash('Error al eliminar el tour', 'danger')
+    
+    return redirect(url_for('admin_tours'))
 
 @app.route('/api/conversations')
 def get_conversations():

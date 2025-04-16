@@ -246,11 +246,11 @@ class MessageHandler:
         # Comando de contacto
         elif 'contacto' in content:
             return ("Puedes contactarnos en:\n"
-                   "- Email: contacto@viajesejemplo.com\n"
-                   "- Teléfono: +52 123 456 7890\n"
+                   "- Email: info@paseotravel.com\n"
+                   "- Teléfono: +1 818 244 2184\n"
                    "- WhatsApp: Este mismo número\n"
-                   "- Sitio web: www.viajesejemplo.com\n\n"
-                   "Horario de atención: Lunes a Viernes de 9:00 a 18:00")
+                   "- Sitio web: www.paseotravel.com\n\n"
+                   "Horario de atención: Lunes a Viernes de 9:00 a 19:00,\nSabados de 11:00 a 15:00")
         
         # Respuesta predeterminada
         else:

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if action == 'edit' %}
+        Editar Tour: {{ tour.name }}
+    {% else %}
+        Nuevo Tour
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                {% if action == 'edit' %}
+                    Editar Tour: {{ tour.name }}
+                {% else %}
+                    Nuevo Tour
+                {% endif %}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin_tours') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a la lista
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="POST" id="tourForm">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Nombre del Tour <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ tour.name if tour else '' }}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="location" class="form-label">Ubicación <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="location" name="location" 
+                               value="{{ tour.location if tour else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Descripción <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="description" name="description" rows="4" required>{{ tour.description if tour else '' }}</textarea>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="duration" class="form-label">Duración <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="duration" name="duration" 
+                               placeholder="Ej: 7 días / 6 noches" value="{{ tour.duration if tour else '' }}" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="price" class="form-label">Precio <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" 
+                               value="{{ tour.price if tour else '' }}" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="currency" class="form-label">Moneda <span class="text-danger">*</span></label>
+                        <select class="form-select" id="currency" name="currency" required>
+                            <option value="MXN" {% if tour and tour.currency == 'MXN' %}selected{% endif %}>MXN - Peso Mexicano</option>
+                            <option value="USD" {% if tour and tour.currency == 'USD' %}selected{% endif %}>USD - Dólar Estadounidense</option>
+                            <option value="EUR" {% if tour and tour.currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="availability" class="form-label">Disponibilidad <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="availability" name="availability" 
+                           placeholder="Ej: Todo el año, Temporada alta, etc." value="{{ tour.availability if tour else '' }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Incluye <span class="text-danger">*</span></label>
+                    <div id="includesContainer">
+                        {% if tour and tour.includes %}
+                            {% for item in tour.includes %}
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" name="includes" value="{{ item }}" required>
+                                    <button type="button" class="btn btn-outline-danger remove-include">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" name="includes" required>
+                                <button type="button" class="btn btn-outline-danger remove-include">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addInclude">
+                        <i class="fas fa-plus"></i> Añadir elemento
+                    </button>
+                </div>
+
+                <div class="mb-3">
+                    <label for="tags" class="form-label">Etiquetas (separadas por comas)</label>
+                    <input type="text" class="form-control" id="tags" name="tags" 
+                           placeholder="Ej: playa, aventura, cultural" 
+                           value="{{ tour.tags_string if tour and tour.tags_string else '' }}">
+                    <div class="form-text">Las etiquetas ayudan a categorizar y buscar tours.</div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ url_for('admin_tours') }}" class="btn btn-outline-secondary me-md-2">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if action == 'edit' %}
+                            Guardar cambios
+                        {% else %}
+                            Crear Tour
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Manejar la adición de nuevos elementos "incluye"
+        document.getElementById('addInclude').addEventListener('click', function() {
+            const container = document.getElementById('includesContainer');
+            const newItem = document.createElement('div');
+            newItem.className = 'input-group mb-2';
+            newItem.innerHTML = `
+                <input type="text" class="form-control" name="includes" required>
+                <button type="button" class="btn btn-outline-danger remove-include">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(newItem);
+            
+            // Asegurarse de que el nuevo botón de eliminar funcione
+            newItem.querySelector('.remove-include').addEventListener('click', removeInclude);
+        });
+        
+        // Función para eliminar un elemento "incluye"
+        function removeInclude() {
+            const container = document.getElementById('includesContainer');
+            // Asegurarse de que siempre quede al menos un elemento
+            if (container.children.length > 1) {
+                this.closest('.input-group').remove();
+            } else {
+                alert('Debe haber al menos un elemento incluido en el tour.');
+            }
+        }
+        
+        // Agregar el evento a los botones de eliminar existentes
+        document.querySelectorAll('.remove-include').forEach(function(button) {
+            button.addEventListener('click', removeInclude);
+        });
+        
+        // Validación del formulario
+        document.getElementById('tourForm').addEventListener('submit', function(event) {
+            const includes = document.querySelectorAll('input[name="includes"]');
+            let valid = true;
+            
+            includes.forEach(function(input) {
+                if (!input.value.trim()) {
+                    valid = false;
+                    input.classList.add('is-invalid');
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            });
+            
+            if (!valid) {
+                event.preventDefault();
+                alert('Por favor, complete todos los campos obligatorios.');
+            }
+        });
+    });
+</script>
+{% endblock %}

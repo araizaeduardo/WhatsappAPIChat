@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de WhatsApp</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% extends 'base.html' %}
+
+{% block title %}Panel de Conversaciones{% endblock %}
+
+{% block styles %}
     <style>
         body {
             padding-top: 20px;
@@ -119,12 +117,22 @@
             display: table;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="container-fluid">
         <div class="row mb-4">
-            <div class="col-12">
-                <h1 class="text-center">Panel de Administración WhatsApp</h1>
+            <div class="col-md-8">
+                <h2>Panel de Administración WhatsApp</h2>
+                <p class="text-muted">Gestiona las conversaciones con tus clientes</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('admin_tours') }}" class="btn btn-primary">
+                    <i class="fas fa-suitcase-rolling me-1"></i> Administrar Tours
+                </a>
+                <a href="#" class="btn btn-outline-success ms-2" id="refreshButton">
+                    <i class="fas fa-sync-alt me-1"></i> Actualizar
+                </a>
             </div>
         </div>
         
@@ -161,7 +169,7 @@
                         <form id="messageForm" class="position-relative">
                             <input type="text" class="form-control message-input" id="messageInput" placeholder="Escribe un mensaje..." disabled>
                             <button type="submit" class="btn btn-primary send-button" id="sendButton" disabled>
-                                <i class="bi bi-send"></i>→
+                                <i class="fas fa-paper-plane"></i>
                             </button>
                         </form>
                     </div>
@@ -170,7 +178,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <audio id="notificationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3" preload="auto"></audio>
     <script>
         // Función para reproducir el sonido de notificación
@@ -202,6 +209,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Cargar las conversaciones al iniciar
             loadConversations();
+            
+            // Configurar el botón de actualizar
+            document.getElementById('refreshButton').addEventListener('click', function(e) {
+                e.preventDefault();
+                loadConversations();
+                // Mostrar un mensaje de éxito temporal
+                const button = this;
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check me-1"></i> Actualizado';
+                button.classList.remove('btn-outline-success');
+                button.classList.add('btn-success');
+                setTimeout(function() {
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-success');
+                }, 1500);
+            });
             
             // Configurar el formulario de envío de mensajes
             document.getElementById('messageForm').addEventListener('submit', function(e) {
@@ -258,7 +282,7 @@
                                     lastMsg.content.substring(0, 30) + '...' : 
                                     lastMsg.content;
                                 
-                                // Formatear la fecha - asegurarse de que el timestamp sea un número o una fecha ISO
+                                // Mostrar la fecha del último mensaje
                                 let msgDate;
                                 try {
                                     // Intentar convertir a número primero (timestamp de Unix)
@@ -277,9 +301,23 @@
                                     
                                     // Verificar si la fecha es válida
                                     if (isNaN(msgDate.getTime())) {
-                                        lastTime = 'Fecha desconocida';
+                                        lastTime = '<span class="text-muted">Fecha desconocida</span>';
                                     } else {
-                                        lastTime = msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                        const today = new Date();
+                                        const yesterday = new Date(today);
+                                        yesterday.setDate(yesterday.getDate() - 1);
+                                        
+                                        // Formatear la fecha según si es hoy, ayer o un día anterior
+                                        if (msgDate.toDateString() === today.toDateString()) {
+                                            // Si es hoy, mostrar solo la hora
+                                            lastTime = msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                        } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                                            // Si es ayer, mostrar 'Ayer' y la hora
+                                            lastTime = 'Ayer ' + msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                        } else {
+                                            // Si es otro día, mostrar la fecha completa
+                                            lastTime = msgDate.toLocaleDateString() + ' ' + msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                        }
                                     }
                                 } catch (e) {
                                     console.error('Error al formatear fecha:', e);
@@ -389,9 +427,23 @@
                                 
                                 // Verificar si la fecha es válida
                                 if (isNaN(msgDate.getTime())) {
-                                    formattedTime = 'Fecha desconocida';
+                                    formattedTime = '<span class="text-muted">Fecha desconocida</span>';
                                 } else {
-                                    formattedTime = msgDate.toLocaleString();
+                                    const today = new Date();
+                                    const yesterday = new Date(today);
+                                    yesterday.setDate(yesterday.getDate() - 1);
+                                    
+                                    // Formatear la fecha según si es hoy, ayer o un día anterior
+                                    if (msgDate.toDateString() === today.toDateString()) {
+                                        // Si es hoy, mostrar solo la hora
+                                        formattedTime = msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                    } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                                        // Si es ayer, mostrar 'Ayer' y la hora
+                                        formattedTime = 'Ayer ' + msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                    } else {
+                                        // Si es otro día, mostrar la fecha completa
+                                        formattedTime = msgDate.toLocaleDateString() + ' ' + msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                    }
                                 }
                             } catch (e) {
                                 console.error('Error al formatear fecha:', e);
@@ -464,5 +516,4 @@
             }
         }
     </script>
-</body>
-</html>
+{% endblock %}

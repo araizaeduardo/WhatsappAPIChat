@@ -3,9 +3,11 @@
 ## Por Hacer
 
 ### Fase 1: Mejoras en Base de Datos
-- [ ] Migrar almacenamiento de conversaciones a una base de datos SQL
-- [ ] Implementar sistema de usuarios y autenticación para el panel de administración
-- [ ] Crear sistema de reportes y estadísticas de conversaciones
+- [ ] Migrar conversaciones a base de datos SQL
+- [ ] Implementar sistema de usuarios y autenticación
+- [ ] Crear sistema de reservas
+- [ ] Implementar sistema de recomendaciones basado en IA
+- [ ] Desarrollar integración con CRM
 
 ### Fase 2: Mejoras en Funcionalidades de Viajes
 - [ ] Integrar sistema de reservas para tours
@@ -39,6 +41,7 @@
 - [x] Configurar ngrok para exponer servidor local
 - [x] Crear estructura básica del proyecto Flask
 - [x] Configurar variables de entorno
+- [x] Implementar base de datos SQLite para tours
 
 ### Sistema Básico de WhatsApp API
 - [x] Configurar webhook de WhatsApp
@@ -55,10 +58,11 @@
 - [x] Mejorar manejo de fechas y timestamps
 
 ### Funcionalidades de Agencia de Viajes
-- [x] Crear base de datos de tours
+- [x] Crear base de datos SQLite para tours
+- [x] Implementar panel de administración CRUD para tours
 - [x] Implementar búsqueda de tours por destino
-- [x] Integrar API de Amadeus para búsqueda de vuelos
-- [x] Desarrollar comandos para consulta de tours y vuelos
+- [x] Integrar API de Amadeus para vuelos
+- [x] Desarrollar comandos específicos para consultas de tours y vuelos
 
 ## Backlog (Ideas Futuras)
 
