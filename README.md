@@ -14,6 +14,10 @@ Un sistema completo para integrar la API de WhatsApp Business con un backend en 
 - 📤 Envío de respuestas automáticas
 - 🧠 Sistema inteligente de procesamiento de mensajes
 - 💾 Almacenamiento de conversaciones
+- 💻 Panel de administración web para gestionar conversaciones
+- 🔄 Actualización en tiempo real de las conversaciones
+- 🔔 Notificaciones visuales y sonoras para nuevos mensajes
+- 📅 Manejo robusto de diferentes formatos de fecha
 
 ### Funcionalidades de Agencia de Viajes
 - 🏝️ Base de datos de tours y paquetes vacacionales
@@ -135,6 +139,17 @@ El sistema reconoce comandos específicos para consultas de viajes:
 - `detalles tour [ID]`: Muestra detalles de un tour específico
 - `vuelos [origen] a [destino] [fecha]`: Busca vuelos disponibles
 - `vuelos [origen] a [destino] [fecha ida] [fecha regreso]`: Busca vuelos de ida y vuelta
+
+### Sistema de notificaciones
+
+El panel de administración incluye un sistema completo de notificaciones para nuevos mensajes:
+
+- **Notificación visual**: Contactos con nuevos mensajes parpadean con un efecto de animación
+- **Indicador de punto verde**: Muestra un punto verde pulsante junto a contactos con mensajes nuevos
+- **Borde izquierdo verde**: Resalta visualmente los contactos con mensajes sin leer
+- **Notificación de sonido**: Reproduce un sonido de alerta cuando llega un nuevo mensaje
+- **Titilación del título**: El título de la página parpadea para alertar sobre nuevos mensajes
+- **Notificaciones del navegador**: Muestra notificaciones del sistema cuando la página no está activa
 
 ### Interfaz de administración
 

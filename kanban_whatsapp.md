@@ -27,6 +27,11 @@
 - [ ] Implementar sistema de recomendaciones personalizadas
 - [ ] Mejorar manejo de errores y logging
 
+### Mejoras en Panel de Administración
+- [ ] Implementar sistema de filtros para conversaciones
+- [ ] Agregar funcionalidad de búsqueda en conversaciones
+- [ ] Implementar vista de estadísticas y analíticas
+
 ## Completado
 
 ### Configuración Básica
@@ -45,6 +50,9 @@
 - [x] Crear interfaz web para administración
 - [x] Implementar visualización de conversaciones
 - [x] Desarrollar sistema para responder desde el panel
+- [x] Implementar notificación visual (flash/indicador) para nuevos mensajes
+- [x] Agregar sonido de alerta para nuevos mensajes
+- [x] Mejorar manejo de fechas y timestamps
 
 ### Funcionalidades de Agencia de Viajes
 - [x] Crear base de datos de tours
