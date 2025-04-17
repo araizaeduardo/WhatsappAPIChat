@@ -70,11 +70,31 @@
                             <i class="fas fa-suitcase-rolling me-1"></i> Tours
                         </a>
                     </li>
+                    {% if session.user and session.user.role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if '/admin/users' in request.path %}active{% endif %}" href="/admin/users">
+                            <i class="fas fa-users-cog me-1"></i> Usuarios
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <div class="d-flex">
-                    <span class="navbar-text me-3">
-                        <i class="fas fa-circle text-success me-1"></i> Sistema activo
-                    </span>
+                    {% if session.user %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle me-1"></i> {{ session.user.username }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('change_password_route') }}"><i class="fas fa-key me-2"></i>Cambiar contraseña</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Cerrar sesión</a></li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-sign-in-alt me-1"></i> Iniciar sesión
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

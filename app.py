@@ -1,18 +1,23 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, flash, session, make_response
 import os
 import requests
 import json
+import functools
 from dotenv import load_dotenv
 from message_handler import MessageHandler
 from tours_db import get_all_tours, get_tour_by_id, add_tour, update_tour, delete_tour
+from user_db import verify_user, create_session, verify_session, invalidate_session, get_all_users, change_password
 
 # Cargar variables de entorno
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configuración para mensajes flash
+# Configuración para mensajes flash y sesiones
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'clave_secreta_predeterminada')
+app.config['SESSION_COOKIE_SECURE'] = True  # Solo enviar cookie a través de HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevenir acceso a cookies vía JavaScript
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # Sesión expira en 24 horas (en segundos)
 
 # Inicializar el manejador de mensajes
 message_handler = MessageHandler()
@@ -22,18 +27,168 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'token_predeterminado')
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 WHATSAPP_PHONE_ID = os.getenv('WHATSAPP_PHONE_ID')
 
-# Ruta para la interfaz web
+# Decorador para proteger rutas que requieren autenticación
+def login_required(f):
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Verificar si hay un token de sesión en la cookie
+        session_token = request.cookies.get('session_token')
+        
+        if not session_token:
+            flash('Debe iniciar sesión para acceder a esta página', 'warning')
+            return redirect(url_for('login', next=request.url))
+        
+        # Verificar si la sesión es válida
+        user_data = verify_session(session_token)
+        
+        if not user_data:
+            flash('Su sesión ha expirado. Por favor, inicie sesión nuevamente', 'warning')
+            return redirect(url_for('login', next=request.url))
+        
+        # Almacenar datos del usuario en el contexto de la solicitud
+        session['user'] = {
+            'id': user_data['id'],
+            'username': user_data['username'],
+            'email': user_data['email'],
+            'role': user_data['role']
+        }
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorador para roles específicos
+def role_required(role):
+    def decorator(f):
+        @functools.wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Primero verificar que el usuario esté autenticado
+            if 'user' not in session:
+                flash('Debe iniciar sesión para acceder a esta página', 'warning')
+                return redirect(url_for('login', next=request.url))
+            
+            # Verificar el rol del usuario
+            if session['user']['role'] != role and session['user']['role'] != 'admin':
+                flash('No tiene permisos para acceder a esta página', 'danger')
+                return redirect(url_for('index'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Ruta para la página de inicio de sesión
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Si el usuario ya está autenticado, redirigir a la página principal
+    session_token = request.cookies.get('session_token')
+    if session_token and verify_session(session_token):
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = request.form.get('remember') == 'on'
+        
+        # Verificar credenciales
+        user = verify_user(username, password)
+        
+        if user:
+            # Crear sesión
+            session_token = create_session(
+                user['id'],
+                request.remote_addr,
+                request.headers.get('User-Agent')
+            )
+            
+            # Almacenar datos del usuario en la sesión
+            session['user'] = {
+                'id': user['id'],
+                'username': user['username'],
+                'email': user['email'],
+                'role': user['role']
+            }
+            
+            # Crear respuesta con redirección
+            next_page = request.args.get('next') or url_for('index')
+            response = make_response(redirect(next_page))
+            
+            # Configurar cookie de sesión
+            max_age = 86400 * 30 if remember else None  # 30 días si 'recordarme' está activo
+            response.set_cookie(
+                'session_token',
+                session_token,
+                max_age=max_age,
+                httponly=True,
+                secure=request.is_secure,
+                samesite='Lax'
+            )
+            
+            flash(f'Bienvenido, {user["username"]}!', 'success')
+            return response
+        else:
+            flash('Nombre de usuario o contraseña incorrectos', 'danger')
+    
+    return render_template('login.html')
+
+# Ruta para cerrar sesión
+@app.route('/logout')
+def logout():
+    # Invalidar sesión en la base de datos
+    session_token = request.cookies.get('session_token')
+    if session_token:
+        invalidate_session(session_token)
+    
+    # Limpiar sesión de Flask
+    session.clear()
+    
+    # Crear respuesta y eliminar cookie
+    response = make_response(redirect(url_for('login')))
+    response.delete_cookie('session_token')
+    
+    flash('Ha cerrado sesión correctamente', 'success')
+    return response
+
+# Ruta para cambiar contraseña
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password_route():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if new_password != confirm_password:
+            flash('Las contraseñas nuevas no coinciden', 'danger')
+            return redirect(url_for('change_password_route'))
+        
+        if len(new_password) < 8:
+            flash('La contraseña debe tener al menos 8 caracteres', 'danger')
+            return redirect(url_for('change_password_route'))
+        
+        # Cambiar contraseña
+        if change_password(session['user']['id'], current_password, new_password):
+            flash('Contraseña cambiada correctamente. Por favor, inicie sesión nuevamente', 'success')
+            return redirect(url_for('logout'))
+        else:
+            flash('La contraseña actual es incorrecta', 'danger')
+            return redirect(url_for('change_password_route'))
+    
+    return render_template('change_password.html')
+
+# Ruta para la interfaz web (protegida)
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
-# Rutas para administración de tours
+# Rutas para administración de tours (protegidas)
 @app.route('/admin/tours')
+@login_required
 def admin_tours():
     tours = get_all_tours()
     return render_template('admin_tours.html', tours=tours)
 
 @app.route('/admin/tours/new', methods=['GET', 'POST'])
+@login_required
 def new_tour():
     if request.method == 'POST':
         # Procesar los datos del formulario
@@ -58,6 +213,7 @@ def new_tour():
     return render_template('tour_form.html', tour=None, action='new')
 
 @app.route('/admin/tours/edit/<tour_id>', methods=['GET', 'POST'])
+@login_required
 def edit_tour(tour_id):
     tour = get_tour_by_id(tour_id)
     
@@ -91,6 +247,7 @@ def edit_tour(tour_id):
     return render_template('tour_form.html', tour=tour, action='edit')
 
 @app.route('/admin/tours/delete/<tour_id>', methods=['POST'])
+@login_required
 def remove_tour(tour_id):
     if delete_tour(tour_id):
         flash('Tour eliminado correctamente', 'success')
@@ -100,6 +257,7 @@ def remove_tour(tour_id):
     return redirect(url_for('admin_tours'))
 
 @app.route('/api/conversations')
+@login_required
 def get_conversations():
     """Endpoint para obtener todas las conversaciones"""
     conversations = []
@@ -115,8 +273,9 @@ def get_conversations():
     
     return jsonify({"conversations": conversations})
 
-@app.route('/api/conversations/<phone_number>')
-def get_conversation(phone_number):
+@app.route('/api/messages/<phone_number>')
+@login_required
+def get_messages(phone_number):
     """Endpoint para obtener una conversación específica"""
     conversation = message_handler.get_conversation_history(phone_number)
     
@@ -126,6 +285,7 @@ def get_conversation(phone_number):
         return jsonify({"error": "Conversación no encontrada"}), 404
 
 @app.route('/api/send-message', methods=['POST'])
+@login_required
 def api_send_message():
     """Endpoint para enviar un mensaje desde la interfaz web"""
     data = request.json
@@ -275,5 +435,15 @@ def send_whatsapp_message(to_number, message_text):
         print(f"Error al enviar mensaje: {str(e)}")
         return {"error": str(e)}
 
+# Ruta para administración de usuarios (solo admin)
+@app.route('/admin/users')
+@login_required
+@role_required('admin')
+def admin_users():
+    users = get_all_users()
+    return render_template('admin_users.html', users=users)
+
 if __name__ == '__main__':
+    # En desarrollo, permitir HTTP
+    app.config['SESSION_COOKIE_SECURE'] = False
     app.run(debug=True, port=5000)

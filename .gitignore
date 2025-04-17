@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Claves secretas y tokens
+FLASK_SECRET_KEY
+
 # Directorio de conversaciones (base de datos)
 conversations/
 *.json
@@ -72,6 +75,8 @@ ngrok.yml
 *.pem
 *.key
 *.crt
+*.token
+*.secret
 
 # Archivos de caché
 .cache/
@@ -83,3 +88,5 @@ htmlcov/
 *.sqlite
 *.sqlite3
 *.db
+users.db
+sessions.db

@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Administración de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Administración de Usuarios</h1>
+            <p class="lead">Gestiona los usuarios con acceso al sistema.</p>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Último Acceso</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if users %}
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{ user.id }}</td>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.role == 'admin' %}
+                                            <span class="badge bg-danger">Administrador</span>
+                                        {% elif user.role == 'staff' %}
+                                            <span class="badge bg-warning text-dark">Staff</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Usuario</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                            {{ user.last_login }}
+                                        {% else %}
+                                            <span class="text-muted">Nunca</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <p class="text-muted mb-0">No hay usuarios disponibles.</p>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

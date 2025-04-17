@@ -5,6 +5,28 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-04-16
+
+### Añadido
+- Sistema completo de autenticación de usuarios con SQLite
+- Protección de rutas administrativas con decoradores
+- Página de inicio de sesión con recordatorio de sesión
+- Gestión segura de sesiones con tokens y cookies
+- Control de acceso basado en roles (admin, staff, user)
+- Función para cambiar contraseña con validación
+- Panel de administración de usuarios (solo para administradores)
+- Información de usuario en el panel principal
+- Menú desplegable para opciones de usuario
+
+### Cambiado
+- Mejorada la seguridad general de la aplicación
+- Actualizada la interfaz para mostrar información del usuario actual
+- Protegidas todas las rutas administrativas y API con autenticación
+
+### Corregido
+- Solucionado problema de carga de mensajes en el panel de conversaciones
+- Corregida la URL para cargar mensajes de `/api/conversations/` a `/api/messages/`
+
 ## [1.1.0] - 2025-04-15
 
 ### Añadido
