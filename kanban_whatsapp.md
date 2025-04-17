@@ -60,6 +60,10 @@
 - [x] Implementar sistema de autenticación y control de acceso
 - [x] Crear panel de administración de usuarios
 - [x] Desarrollar sistema de cambio de contraseña
+- [x] Implementar CRUD completo para administración de usuarios
+- [x] Añadir protección para roles de administrador
+- [x] Implementar jerarquía de permisos por roles (admin, staff, user)
+- [x] Corregir acceso a conversaciones para usuarios con diferentes roles
 
 ### Funcionalidades de Agencia de Viajes
 - [x] Crear base de datos SQLite para tours

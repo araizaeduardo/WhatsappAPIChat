@@ -6,7 +6,7 @@ import functools
 from dotenv import load_dotenv
 from message_handler import MessageHandler
 from tours_db import get_all_tours, get_tour_by_id, add_tour, update_tour, delete_tour
-from user_db import verify_user, create_session, verify_session, invalidate_session, get_all_users, change_password
+from user_db import verify_user, create_session, verify_session, invalidate_session, get_all_users, change_password, create_user, get_user_by_id, update_user, delete_user
 
 # Cargar variables de entorno
 load_dotenv()
@@ -183,12 +183,14 @@ def index():
 # Rutas para administración de tours (protegidas)
 @app.route('/admin/tours')
 @login_required
+@role_required('staff')
 def admin_tours():
     tours = get_all_tours()
     return render_template('admin_tours.html', tours=tours)
 
 @app.route('/admin/tours/new', methods=['GET', 'POST'])
 @login_required
+@role_required('staff')
 def new_tour():
     if request.method == 'POST':
         # Procesar los datos del formulario
@@ -214,6 +216,7 @@ def new_tour():
 
 @app.route('/admin/tours/edit/<tour_id>', methods=['GET', 'POST'])
 @login_required
+@role_required('staff')
 def edit_tour(tour_id):
     tour = get_tour_by_id(tour_id)
     
@@ -248,6 +251,7 @@ def edit_tour(tour_id):
 
 @app.route('/admin/tours/delete/<tour_id>', methods=['POST'])
 @login_required
+@role_required('staff')
 def remove_tour(tour_id):
     if delete_tour(tour_id):
         flash('Tour eliminado correctamente', 'success')
@@ -435,13 +439,111 @@ def send_whatsapp_message(to_number, message_text):
         print(f"Error al enviar mensaje: {str(e)}")
         return {"error": str(e)}
 
-# Ruta para administración de usuarios (solo admin)
+# Rutas para administración de usuarios (solo admin)
 @app.route('/admin/users')
 @login_required
 @role_required('admin')
 def admin_users():
     users = get_all_users()
     return render_template('admin_users.html', users=users)
+
+@app.route('/admin/users/new', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def new_user():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        role = request.form.get('role')
+        
+        # Validaciones
+        if not username or not email or not password or not role:
+            flash('Todos los campos son obligatorios', 'danger')
+            return redirect(url_for('new_user'))
+        
+        if password != confirm_password:
+            flash('Las contraseñas no coinciden', 'danger')
+            return redirect(url_for('new_user'))
+        
+        if len(password) < 8:
+            flash('La contraseña debe tener al menos 8 caracteres', 'danger')
+            return redirect(url_for('new_user'))
+        
+        # Crear usuario
+        user_id = create_user(username, password, email, role)
+        
+        if user_id:
+            flash(f'Usuario {username} creado correctamente', 'success')
+            return redirect(url_for('admin_users'))
+        else:
+            flash('Error al crear el usuario. Es posible que el nombre de usuario o email ya existan.', 'danger')
+            return redirect(url_for('new_user'))
+    
+    return render_template('user_form.html', user=None, action='new')
+
+@app.route('/admin/users/edit/<user_id>', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def edit_user(user_id):
+    user = get_user_by_id(user_id)
+    
+    if not user:
+        flash('Usuario no encontrado', 'danger')
+        return redirect(url_for('admin_users'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        role = request.form.get('role')
+        is_active = request.form.get('is_active') == 'on'
+        
+        # Validaciones
+        if not username or not email or not role:
+            flash('Todos los campos son obligatorios', 'danger')
+            return redirect(url_for('edit_user', user_id=user_id))
+        
+        # No permitir cambiar el rol del último administrador
+        if user['role'] == 'admin' and role != 'admin':
+            # Verificar si es el último administrador
+            all_users = get_all_users()
+            admin_count = sum(1 for u in all_users if u['role'] == 'admin')
+            
+            if admin_count <= 1:
+                flash('No se puede cambiar el rol del último administrador', 'danger')
+                return redirect(url_for('edit_user', user_id=user_id))
+        
+        # Actualizar usuario
+        if update_user(user_id, username, email, role, is_active):
+            flash(f'Usuario {username} actualizado correctamente', 'success')
+            return redirect(url_for('admin_users'))
+        else:
+            flash('Error al actualizar el usuario', 'danger')
+            return redirect(url_for('edit_user', user_id=user_id))
+    
+    return render_template('user_form.html', user=user, action='edit')
+
+@app.route('/admin/users/delete/<user_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def remove_user(user_id):
+    # No permitir eliminar al usuario actual
+    if str(session['user']['id']) == str(user_id):
+        flash('No puedes eliminar tu propio usuario', 'danger')
+        return redirect(url_for('admin_users'))
+    
+    user = get_user_by_id(user_id)
+    if not user:
+        flash('Usuario no encontrado', 'danger')
+        return redirect(url_for('admin_users'))
+    
+    if delete_user(user_id):
+        flash(f'Usuario {user["username"]} eliminado correctamente', 'success')
+    else:
+        flash('No se puede eliminar el último administrador', 'danger')
+    
+    return redirect(url_for('admin_users'))
 
 if __name__ == '__main__':
     # En desarrollo, permitir HTTP

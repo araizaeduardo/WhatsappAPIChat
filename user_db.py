@@ -378,5 +378,134 @@ def get_all_users():
         print(f"Error al obtener usuarios: {str(e)}")
         return []
 
+def get_user_by_id(user_id):
+    """
+    Obtiene un usuario por su ID.
+    
+    Args:
+        user_id (int): ID del usuario
+        
+    Returns:
+        dict: Datos del usuario o None si no existe
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, username, email, role, created_at, last_login, is_active FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+        
+        conn.close()
+        
+        if user:
+            return dict(user)
+        return None
+    except Exception as e:
+        print(f"Error al obtener usuario: {str(e)}")
+        return None
+
+def update_user(user_id, username=None, email=None, role=None, is_active=None):
+    """
+    Actualiza los datos de un usuario.
+    
+    Args:
+        user_id (int): ID del usuario
+        username (str, optional): Nuevo nombre de usuario
+        email (str, optional): Nuevo correo electrónico
+        role (str, optional): Nuevo rol
+        is_active (int, optional): Estado de activación (1=activo, 0=inactivo)
+        
+    Returns:
+        bool: True si se actualizó correctamente, False en caso contrario
+    """
+    try:
+        # Verificar que el usuario existe
+        user = get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        # Construir la consulta SQL dinámicamente
+        update_fields = []
+        params = []
+        
+        if username is not None:
+            update_fields.append("username = ?")
+            params.append(username)
+        
+        if email is not None:
+            update_fields.append("email = ?")
+            params.append(email)
+        
+        if role is not None:
+            update_fields.append("role = ?")
+            params.append(role)
+        
+        if is_active is not None:
+            update_fields.append("is_active = ?")
+            params.append(1 if is_active else 0)
+        
+        if not update_fields:
+            # No hay campos para actualizar
+            return True
+        
+        # Añadir el ID del usuario a los parámetros
+        params.append(user_id)
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Ejecutar la consulta
+        query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, params)
+        
+        conn.commit()
+        conn.close()
+        
+        return True
+    except Exception as e:
+        print(f"Error al actualizar usuario: {str(e)}")
+        return False
+
+def delete_user(user_id):
+    """
+    Elimina un usuario.
+    
+    Args:
+        user_id (int): ID del usuario
+        
+    Returns:
+        bool: True si se eliminó correctamente, False en caso contrario
+    """
+    try:
+        # No permitir eliminar el último administrador
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Verificar si es el último administrador
+        cursor.execute('SELECT COUNT(*) FROM users WHERE role = "admin"')
+        admin_count = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT role FROM users WHERE id = ?', (user_id,))
+        user_role = cursor.fetchone()
+        
+        if user_role and user_role[0] == 'admin' and admin_count <= 1:
+            conn.close()
+            return False  # No se puede eliminar el último administrador
+        
+        # Eliminar las sesiones del usuario
+        cursor.execute('DELETE FROM sessions WHERE user_id = ?', (user_id,))
+        
+        # Eliminar el usuario
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return True
+    except Exception as e:
+        print(f"Error al eliminar usuario: {str(e)}")
+        return False
+
 # Inicializar la base de datos al importar el módulo
 init_db()

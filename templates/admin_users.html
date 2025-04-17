@@ -10,7 +10,10 @@
             <p class="lead">Gestiona los usuarios con acceso al sistema.</p>
         </div>
         <div class="col-auto d-flex align-items-center">
-            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary ms-2">
+            <a href="{{ url_for('new_user') }}" class="btn btn-success me-2">
+                <i class="fas fa-user-plus"></i> Nuevo Usuario
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver al Panel
             </a>
         </div>
@@ -39,6 +42,7 @@
                             <th>Rol</th>
                             <th>Último Acceso</th>
                             <th>Estado</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,6 +75,25 @@
                                             <span class="badge bg-secondary">Inactivo</span>
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn btn-outline-primary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if session.user.id != user.id %}
+                                                <button type="button" class="btn btn-outline-danger" title="Eliminar" 
+                                                    data-bs-toggle="modal" data-bs-target="#deleteUserModal" 
+                                                    data-user-id="{{ user.id }}" 
+                                                    data-user-name="{{ user.username }}">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            {% else %}
+                                                <button type="button" class="btn btn-outline-danger" disabled title="No puedes eliminar tu propio usuario">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                 </tr>
                             {% endfor %}
                         {% else %}
@@ -86,4 +109,45 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmación para eliminar usuario -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteUserModalLabel">Confirmar eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar al usuario <strong id="deleteUserName"></strong>?</p>
+                <p class="text-danger">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteUserForm" method="POST">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configurar el modal de eliminación
+        const deleteUserModal = document.getElementById('deleteUserModal');
+        if (deleteUserModal) {
+            deleteUserModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const userId = button.getAttribute('data-user-id');
+                const userName = button.getAttribute('data-user-name');
+                
+                document.getElementById('deleteUserName').textContent = userName;
+                document.getElementById('deleteUserForm').action = `/admin/users/delete/${userId}`;
+            });
+        }
+    });
+</script>
 {% endblock %}

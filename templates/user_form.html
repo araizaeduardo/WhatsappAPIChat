@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if action == 'new' %}
+        Nuevo Usuario
+    {% else %}
+        Editar Usuario
+    {% endif %}
+    - Paseo Travel
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                {% if action == 'new' %}
+                    Nuevo Usuario
+                {% else %}
+                    Editar Usuario
+                {% endif %}
+            </h1>
+            <p class="lead">
+                {% if action == 'new' %}
+                    Crea un nuevo usuario con acceso al sistema.
+                {% else %}
+                    Modifica la información del usuario.
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a Usuarios
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="POST" id="userForm" action="{% if action == 'new' %}{{ url_for('new_user') }}{% else %}{{ url_for('edit_user', user_id=user.id) }}{% endif %}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Nombre de usuario <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" value="{{ user.username if user else '' }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ user.email if user else '' }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="" disabled {% if not user %}selected{% endif %}>Selecciona un rol</option>
+                                    <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>Administrador</option>
+                                    <option value="staff" {% if user and user.role == 'staff' %}selected{% endif %}>Staff</option>
+                                    <option value="user" {% if user and user.role == 'user' %}selected{% endif %}>Usuario</option>
+                                </select>
+                            </div>
+                            <div class="form-text">
+                                <ul class="mb-0 ps-3">
+                                    <li><strong>Administrador:</strong> Acceso completo a todas las funciones</li>
+                                    <li><strong>Staff:</strong> Acceso a gestión de tours y conversaciones</li>
+                                    <li><strong>Usuario:</strong> Acceso básico a conversaciones</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        {% if action == 'new' %}
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Contraseña <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="password" name="password" required minlength="8">
+                                    <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">La contraseña debe tener al menos 8 caracteres.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Confirmar contraseña <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="8">
+                                    <button class="btn btn-outline-secondary toggle-password" type="button" data-target="confirm_password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if user and user.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">Usuario activo</label>
+                                <div class="form-text">Los usuarios inactivos no pueden iniciar sesión.</div>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Para cambiar la contraseña, el usuario debe usar la opción "Cambiar contraseña" desde su perfil.
+                            </div>
+                        {% endif %}
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary me-md-2">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mostrar/ocultar contraseña
+        document.querySelectorAll('.toggle-password').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Cambiar el ícono
+                this.querySelector('i').classList.toggle('fa-eye');
+                this.querySelector('i').classList.toggle('fa-eye-slash');
+            });
+        });
+        
+        // Validación de formulario
+        const form = document.getElementById('userForm');
+        form.addEventListener('submit', function(event) {
+            {% if action == 'new' %}
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirm_password').value;
+                
+                if (password !== confirmPassword) {
+                    event.preventDefault();
+                    alert('Las contraseñas no coinciden');
+                }
+            {% endif %}
+        });
+    });
+</script>
+{% endblock %}

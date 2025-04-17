@@ -118,7 +118,7 @@ class MessageHandler:
         
         # Patrones para tours y vuelos
         tour_patterns = ['tour', 'tours', 'paquete', 'paquetes', 'vacaciones', 'viaje', 'viajes', 'destino', 'destinos']
-        flight_patterns = ['vuelo', 'vuelos', 'boleto', 'boletos', 'avion', 'avión', 'aeropuerto']
+        flight_patterns = ['vuelo', 'vuelos', 'boleto', 'boletos', 'avion', 'avión', 'aeropuerto', 'flight', 'flights', 'ticket', 'tickets']
         
         # Verificar si es un saludo
         if any(pattern in content for pattern in greeting_patterns):
@@ -202,15 +202,47 @@ class MessageHandler:
         
         # Verificar si es una búsqueda de vuelos
         elif any(pattern in content for pattern in flight_patterns):
-            # Buscar vuelos que coincidan con la consulta
-            # Verificar si tiene el formato correcto: vuelos [origen] a [destino] [fecha] [fecha_regreso]?
-            flight_match = re.search(r'vuelos? ([a-z]{3}) a ([a-z]{3}) (\d{4}-\d{2}-\d{2})(?: (\d{4}-\d{2}-\d{2}))?', content)
+            # Intentar diferentes patrones de búsqueda de vuelos
+            
+            # Patrón 1: vuelos [origen] a [destino] [fecha] [fecha_regreso]?
+            flight_match = re.search(r'vuelos? ([a-z]{3}) a ([a-z]{3}) (\d{4}-\d{2}-\d{2})(?:\s(\d{4}-\d{2}-\d{2}))?', content)
+            
+            # Patrón 2: vuelos de [origen] a [destino] para [fecha] [fecha_regreso]?
+            if not flight_match:
+                flight_match = re.search(r'vuelos? de ([a-z]{3}) a ([a-z]{3}) (?:para|el) (\d{4}-\d{2}-\d{2})(?:\s(?:al|hasta|regreso)\s(\d{4}-\d{2}-\d{2}))?', content)
+            
+            # Patrón 3: vuelos [origen]-[destino] [fecha] [fecha_regreso]?
+            if not flight_match:
+                flight_match = re.search(r'vuelos? ([a-z]{3})[\s-]([a-z]{3}) (\d{4}-\d{2}-\d{2})(?:\s(\d{4}-\d{2}-\d{2}))?', content)
+                
+            # Patrón 4: vuelos de [origen] a [destino] del [fecha] al [fecha]
+            if not flight_match:
+                flight_match = re.search(r'vuelos? de ([a-z]{3}) a ([a-z]{3}) del (\d{4}-\d{2}-\d{2}) al (\d{4}-\d{2}-\d{2})', content)
             
             if flight_match:
                 origin = flight_match.group(1).upper()
                 destination = flight_match.group(2).upper()
                 departure_date = flight_match.group(3)
                 return_date = flight_match.group(4) if flight_match.group(4) else None
+                
+                # Crear enlace de quick_search
+                quick_search_params = [
+                    f"origin={origin}",
+                    f"destination={destination}",
+                    f"departure_date={departure_date}"
+                ]
+                
+                # Determinar el tipo de viaje (ida y vuelta o solo ida)
+                if return_date:
+                    quick_search_params.append(f"return_date={return_date}")
+                    quick_search_params.append("trip_type=roundtrip")
+                else:
+                    quick_search_params.append("trip_type=oneway")
+                
+                quick_search_params.append("adults=1")
+                quick_search_params.append("auto_search=true")
+                
+                quick_search_url = f"https://vuelos.paseotravel.com/quick_search?{'&'.join(quick_search_params)}"
                 
                 try:
                     # Buscar vuelos
@@ -219,19 +251,36 @@ class MessageHandler:
                     if flights:
                         # Mostrar el primer vuelo encontrado
                         flight_info = amadeus_api.format_flight_info(flights[0])
+                        
+                        # Agregar enlace para completar la reserva
+                        flight_info += f"\n\n🔗 *Completa tu reserva aquí:*\n{quick_search_url}"
+                        
+                        # Agregar mensaje adicional sobre más opciones
+                        flight_info += "\n\nEste es solo uno de los vuelos disponibles. Para ver más opciones y completar tu reserva, haz clic en el enlace anterior."
+                        
                         return flight_info
                     else:
-                        return f"Lo siento, no encontré vuelos disponibles de {origin} a {destination} para la fecha {departure_date}."
+                        return f"Lo siento, no encontré vuelos disponibles de {origin} a {destination} para la fecha {departure_date}.\n\nPuedes intentar con otras fechas o destinos, o buscar directamente en nuestro sitio web:\n{quick_search_url}"
                 except Exception as e:
                     print(f"Error al buscar vuelos: {str(e)}")
-                    return "Lo siento, ocurrió un error al buscar vuelos. Por favor, intenta más tarde o contacta a nuestro equipo de soporte."
+                    return f"Lo siento, ocurrió un error al buscar vuelos. Por favor, intenta más tarde o visita nuestro sitio web para buscar opciones:\n{quick_search_url}"
             else:
-                return ("Para buscar vuelos, utiliza el siguiente formato:\n"
+                # Si no se encontró un patrón específico pero el usuario está interesado en vuelos
+                # Ofrecer un enlace genérico a la página de búsqueda
+                generic_search_url = "https://vuelos.paseotravel.com/quick_search"
+                
+                return ("Para buscar vuelos, utiliza alguno de estos formatos:\n\n"
+                       "*Vuelos solo ida:*\n"
                        "- vuelos [origen] a [destino] [fecha]\n"
-                       "  Ejemplo: vuelos MEX a CUN 2025-05-15\n\n"
-                       "Para vuelos de ida y vuelta:\n"
+                       "  Ejemplo: vuelos MEX a CUN 2025-05-15\n"
+                       "- vuelos de [origen] a [destino] para [fecha]\n"
+                       "  Ejemplo: vuelos de MEX a CUN para 2025-05-15\n\n"
+                       "*Vuelos de ida y vuelta:*\n"
                        "- vuelos [origen] a [destino] [fecha ida] [fecha regreso]\n"
-                       "  Ejemplo: vuelos MEX a CUN 2025-05-15 2025-05-22")
+                       "  Ejemplo: vuelos MEX a CUN 2025-05-15 2025-05-22\n"
+                       "- vuelos de [origen] a [destino] del [fecha ida] al [fecha regreso]\n"
+                       "  Ejemplo: vuelos de MEX a CUN del 2025-05-15 al 2025-05-22\n\n"
+                       f"También puedes visitar directamente nuestro buscador de vuelos:\n{generic_search_url}")
         
         # Verificar si es un agradecimiento
         elif any(pattern in content for pattern in thanks_patterns):

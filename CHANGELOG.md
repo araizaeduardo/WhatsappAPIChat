@@ -5,6 +5,35 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-04-16
+
+### Corregido
+- Sistema de permisos basado en roles mejorado
+- Acceso correcto a conversaciones para usuarios con rol 'staff'
+- Restricción de acceso a administración de tours solo para 'staff' y 'admin'
+- Jerarquía de permisos claramente definida (admin > staff > user)
+
+### Mejorado
+- Implementación de decoradores de protección para rutas
+- Separación clara de responsabilidades por rol
+
+## [1.3.0] - 2025-04-16
+
+### Añadido
+- Sistema completo de administración de usuarios (CRUD)
+- Formulario para crear nuevos usuarios con validación
+- Formulario para editar usuarios existentes
+- Función para eliminar usuarios con confirmación
+- Protección para evitar eliminar el último administrador
+- Protección para evitar que un usuario elimine su propia cuenta
+- Opción para activar/desactivar usuarios
+
+### Mejorado
+- Interfaz de administración de usuarios con acciones
+- Validación de formularios con JavaScript
+- Seguridad en la gestión de usuarios
+- Actualización del archivo .gitignore para mayor seguridad
+
 ## [1.2.0] - 2025-04-16
 
 ### Añadido
