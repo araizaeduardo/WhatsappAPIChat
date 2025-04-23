@@ -20,6 +20,9 @@
 - [ ] Implementar análisis de sentimiento para mensajes
 - [ ] Crear sistema de etiquetado automático de conversaciones
 - [ ] Desarrollar integración con CRM
+- [ ] Implementar integración con SMS (Telnyx)
+- [ ] Implementar integración con Email (SMTP/API)
+- [ ] Crear sistema unificado de mensajería multicanal
 
 ## En Progreso
 
@@ -33,8 +36,16 @@
 - [ ] Implementar sistema de filtros para conversaciones
 - [ ] Agregar funcionalidad de búsqueda en conversaciones
 - [ ] Implementar vista de estadísticas y analíticas
+- [ ] Añadir filtros por canal de comunicación (WhatsApp/SMS/Email)
+- [ ] Crear panel de configuración para cada canal de comunicación
 
 ## Completado
+
+### Preparación para Múltiples Canales
+- [x] Preparar interfaz para identificar visualmente diferentes canales de comunicación
+- [x] Implementar iconos para WhatsApp, SMS y Email en mensajes
+- [x] Adaptar código JavaScript para soportar múltiples fuentes de mensajes
+- [x] Añadir estilos CSS específicos para cada canal
 
 ### Configuración Básica
 - [x] Configurar entorno de desarrollo
@@ -74,6 +85,7 @@
 
 ## Backlog (Ideas Futuras)
 
+- [ ] Implementar integración con múltiples canales de comunicación (SMS, Email)
 - [ ] Implementar sistema multiusuario para gestionar múltiples números de WhatsApp
 - [ ] Crear sistema de chatbots personalizables por destino turístico
 - [ ] Desarrollar integración con sistemas de gestión hotelera

@@ -96,6 +96,28 @@
             margin-top: 5px;
             display: block;
         }
+        .message-source-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .source-whatsapp {
+            /* Estilo específico para WhatsApp */
+            border-radius: 50%;
+        }
+        .source-sms {
+            /* Estilo específico para SMS cuando se implemente */
+            background-color: #2196F3;
+            border-radius: 50%;
+            padding: 2px;
+        }
+        .source-email {
+            /* Estilo específico para Email cuando se implemente */
+            background-color: #FF5722;
+            border-radius: 2px;
+            padding: 1px;
+        }
         .message-input {
             border-radius: 20px;
             padding-right: 50px;
@@ -395,9 +417,30 @@
                                 contactItem.classList.add('new-message');
                             }
                             
+                            // Determinar el icono según el canal de comunicación (por defecto WhatsApp)
+                            const conversationSource = conversation.source || 'whatsapp'; // Por defecto WhatsApp si no se especifica
+                            let sourceIconHtml = '';
+                            
+                            switch(conversationSource) {
+                                case 'whatsapp':
+                                    sourceIconHtml = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Conversación de WhatsApp">';
+                                    break;
+                                case 'sms':
+                                    sourceIconHtml = '<img src="https://cdn-icons-png.flaticon.com/512/3095/3095849.png" class="message-source-icon source-sms" alt="SMS" title="Conversación de SMS">';
+                                    break;
+                                case 'email':
+                                    sourceIconHtml = '<img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" class="message-source-icon source-email" alt="Email" title="Conversación de Email">';
+                                    break;
+                                default:
+                                    sourceIconHtml = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Conversación de WhatsApp">';
+                            }
+                            
                             contactItem.innerHTML = `
                                 <div class="d-flex justify-content-between">
-                                    <strong>${conversation.phone_number}</strong>
+                                    <strong>
+                                        ${sourceIconHtml}
+                                        ${conversation.phone_number}
+                                    </strong>
                                     <small>${lastTime}</small>
                                 </div>
                                 <div class="text-muted">${lastMessage}</div>
@@ -496,9 +539,29 @@
                                 formattedTime = 'Fecha desconocida';
                             }
                             
+                            // Determinar el icono según el canal de comunicación (por defecto WhatsApp)
+                            let sourceIcon = '';
+                            if (message.direction === 'received') {
+                                const messageSource = message.source || 'whatsapp'; // Por defecto WhatsApp si no se especifica
+                                
+                                switch(messageSource) {
+                                    case 'whatsapp':
+                                        sourceIcon = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Mensaje de WhatsApp">';
+                                        break;
+                                    case 'sms':
+                                        sourceIcon = '<img src="https://cdn-icons-png.flaticon.com/512/3095/3095849.png" class="message-source-icon source-sms" alt="SMS" title="Mensaje de SMS">';
+                                        break;
+                                    case 'email':
+                                        sourceIcon = '<img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" class="message-source-icon source-email" alt="Email" title="Mensaje de Email">';
+                                        break;
+                                    default:
+                                        sourceIcon = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon" alt="WhatsApp" title="Mensaje de WhatsApp">';
+                                }
+                            }
+                            
                             messageDiv.innerHTML = `
                                 <div>${message.content}</div>
-                                <span class="message-time">${formattedTime}</span>
+                                <span class="message-time">${sourceIcon}${formattedTime}</span>
                             `;
                             
                             messageContainer.appendChild(messageDiv);
