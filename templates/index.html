@@ -235,10 +235,16 @@
                     </div>
                     <div class="card-footer">
                         <form id="messageForm" class="position-relative">
-                            <input type="text" class="form-control message-input" id="messageInput" placeholder="Escribe un mensaje..." disabled>
-                            <button type="submit" class="btn btn-primary send-button" id="sendButton" disabled>
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <div class="input-group mb-2">
+                                <select id="messageChannel" class="form-select" style="max-width: 120px;">
+                                    <option value="whatsapp" selected>WhatsApp</option>
+                                    <option value="sms">SMS</option>
+                                </select>
+                                <input type="text" id="messageInput" class="form-control message-input" placeholder="Escribe un mensaje..." disabled>
+                                <button type="submit" class="btn btn-primary send-button" id="sendButton" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -580,9 +586,15 @@
                 });
         }
         
-        // Función para enviar un mensaje
+        // Función para enviar un mensaje según el canal seleccionado
         function sendMessage(phoneNumber, message) {
-            fetch('/api/send-message', {
+            // Obtener el canal seleccionado
+            const channel = document.getElementById('messageChannel').value;
+            
+            // Determinar el endpoint según el canal
+            const endpoint = channel === 'sms' ? '/api/send-sms' : '/api/send-message';
+            
+            fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -598,12 +610,12 @@
                     // Recargar los mensajes para mostrar el mensaje enviado
                     loadMessages(phoneNumber);
                 } else {
-                    alert('Error al enviar el mensaje: ' + data.error);
+                    alert(`Error al enviar el mensaje por ${channel === 'sms' ? 'SMS' : 'WhatsApp'}: ${data.error}`);
                 }
             })
             .catch(error => {
-                console.error('Error al enviar el mensaje:', error);
-                alert('Error al enviar el mensaje');
+                console.error(`Error al enviar el mensaje por ${channel === 'sms' ? 'SMS' : 'WhatsApp'}:`, error);
+                alert(`Error al enviar el mensaje por ${channel === 'sms' ? 'SMS' : 'WhatsApp'}`);
             });
         }
         

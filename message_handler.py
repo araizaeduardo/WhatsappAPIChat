@@ -49,7 +49,7 @@ class MessageHandler:
         
         return response
     
-    def save_message(self, phone_number, direction, msg_type, content, message_id=None, timestamp=None):
+    def save_message(self, phone_number, direction, msg_type, content, message_id=None, timestamp=None, source="whatsapp"):
         """
         Guarda un mensaje en el historial de conversaciones.
         
@@ -60,6 +60,7 @@ class MessageHandler:
             content (str): Contenido del mensaje
             message_id (str, optional): ID del mensaje
             timestamp (str, optional): Marca de tiempo del mensaje
+            source (str, optional): Origen del mensaje ('whatsapp', 'sms', 'email'). Por defecto 'whatsapp'.
         """
         # Normalizar el número de teléfono para usarlo como nombre de archivo
         filename = self._normalize_phone(phone_number)
@@ -81,7 +82,8 @@ class MessageHandler:
             "type": msg_type,
             "content": content,
             "timestamp": timestamp or datetime.now().isoformat(),
-            "message_id": message_id
+            "message_id": message_id,
+            "source": source  # Añadir el origen del mensaje
         }
         
         # Agregar el mensaje a la conversación

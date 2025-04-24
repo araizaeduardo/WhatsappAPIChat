@@ -4,6 +4,7 @@ import requests
 import json
 import functools
 from dotenv import load_dotenv
+from datetime import datetime
 from message_handler import MessageHandler
 from tours_db import get_all_tours, get_tour_by_id, add_tour, update_tour, delete_tour
 from user_db import verify_user, create_session, verify_session, invalidate_session, get_all_users, change_password, create_user, get_user_by_id, update_user, delete_user
@@ -26,6 +27,10 @@ message_handler = MessageHandler()
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'token_predeterminado')
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 WHATSAPP_PHONE_ID = os.getenv('WHATSAPP_PHONE_ID')
+
+# Variables de entorno para Telnyx
+TELNYX_API_KEY = os.getenv('TELNYX_API_KEY')
+TELNYX_PHONE_NUMBER = os.getenv('TELNYX_PHONE_NUMBER')
 
 # Decorador para proteger rutas que requieren autenticación
 def login_required(f):
@@ -544,6 +549,159 @@ def remove_user(user_id):
         flash('No se puede eliminar el último administrador', 'danger')
     
     return redirect(url_for('admin_users'))
+
+# Función para enviar mensajes SMS usando Telnyx
+def send_sms_message(to_number, message_text):
+    """
+    Envía un mensaje SMS utilizando la API de Telnyx
+    
+    Args:
+        to_number (str): Número de teléfono del destinatario en formato internacional
+        message_text (str): Texto del mensaje a enviar
+    
+    Returns:
+        dict: Respuesta de la API de Telnyx
+    """
+    url = "https://api.telnyx.com/v2/messages"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Bearer {TELNYX_API_KEY}"
+    }
+    
+    payload = {
+        "from": TELNYX_PHONE_NUMBER,
+        "to": to_number,
+        "text": message_text,
+        "media_urls": []
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response_data = response.json()
+        
+        # Verificar si hay errores de 10DLC
+        if 'data' in response_data and 'errors' in response_data['data']:
+            for error in response_data['data']['errors']:
+                if error.get('code') == '40010':
+                    print(f"Error 10DLC: El número {TELNYX_PHONE_NUMBER} no está registrado en 10DLC")
+                    print("Para enviar SMS a números de EE.UU., debes registrar tu número en 10DLC o usar un número Toll-Free")
+                    print("Más información: https://developers.telnyx.com/docs/overview/errors/40010")
+        
+        # Guardar el mensaje en el sistema incluso si hay error de entrega
+        # para mantener un registro de los intentos
+        message_id = response_data.get('data', {}).get('id', '')
+        
+        # Determinar si hubo error de entrega
+        delivery_status = "error"
+        error_message = ""
+        
+        if 'data' in response_data and 'errors' in response_data['data'] and response_data['data']['errors']:
+            error_obj = response_data['data']['errors'][0]
+            error_message = f"Error: {error_obj.get('title')} - {error_obj.get('detail')}"
+            delivery_status = "error"
+        elif 'data' in response_data and 'to' in response_data['data'] and response_data['data']['to']:
+            status = response_data['data']['to'][0].get('status', '')
+            if status in ['queued', 'sending', 'sent', 'delivered']:
+                delivery_status = "sent"
+            else:
+                delivery_status = "error"
+                error_message = f"Estado de entrega: {status}"
+        
+        # Añadir información de error al mensaje si existe
+        content = message_text
+        if error_message:
+            content += f"\n\n[{error_message}]"
+        
+        # Guardar el mensaje enviado en el sistema
+        message_handler.save_message(
+            to_number, 
+            "sent", 
+            "text", 
+            content,
+            message_id=message_id,
+            timestamp=int(datetime.now().timestamp()),
+            source="sms"  # Identificar como SMS
+        )
+        
+        return response_data
+    except Exception as e:
+        print(f"Error enviando SMS: {str(e)}")
+        raise
+
+# Endpoint para enviar SMS desde el panel de administración
+@app.route('/api/send-sms', methods=['POST'])
+@login_required
+def send_sms_api():
+    """
+    Endpoint para enviar mensajes SMS desde el panel de administración.
+    """
+    data = request.json
+    phone_number = data['phone_number']
+    message = data['message']
+    
+    try:
+        # Enviar el mensaje a través de la API de Telnyx
+        result = send_sms_message(phone_number, message)
+        
+        return jsonify({"success": True, "result": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# Webhook para recibir mensajes SMS de Telnyx
+@app.route('/webhook/sms', methods=['POST'])
+def sms_webhook():
+    """
+    Webhook para recibir mensajes SMS de Telnyx.
+    Solo recibe y guarda los mensajes, sin enviar respuestas automáticas.
+    """
+    # Obtener los datos del webhook
+    data = request.json
+    print(f"Datos SMS recibidos: {data}")
+    
+    try:
+        # Verificar si es un mensaje entrante
+        if data.get('data', {}).get('event_type') == 'message.received':
+            payload = data['data']['payload']
+            
+            # Extraer información del mensaje
+            from_number = payload['from']['phone_number']
+            to_number = payload['to'][0]['phone_number']
+            message_content = payload['text']
+            message_id = payload['id']
+            
+            # Obtener timestamp o usar el actual
+            received_at = payload.get('received_at')
+            if received_at:
+                # Convertir ISO timestamp a timestamp Unix
+                dt = datetime.fromisoformat(received_at.replace('Z', '+00:00'))
+                timestamp = int(dt.timestamp())
+            else:
+                timestamp = int(datetime.now().timestamp())
+            
+            # Guardar el mensaje en el sistema
+            message_handler.save_message(
+                from_number, 
+                "received", 
+                "text", 
+                message_content,
+                timestamp=timestamp,
+                message_id=message_id,
+                source="sms"  # Identificar como SMS
+            )
+            
+            # No enviamos respuesta automática para mensajes SMS
+            # Solo registramos que se recibió el mensaje
+            print(f"Mensaje SMS recibido de {from_number}: {message_content}")
+            
+            return '', 200  # Respuesta vacía con código 200
+        
+        # Otros tipos de eventos (confirmaciones de entrega, etc.)
+        return '', 200
+        
+    except Exception as e:
+        print(f"Error procesando webhook SMS: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # En desarrollo, permitir HTTP
