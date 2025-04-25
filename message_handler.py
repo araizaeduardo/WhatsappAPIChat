@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 from datetime import datetime
 from tours_db import search_tours, get_tour_by_id, format_tour_info, get_all_tours
 from amadeus_api import amadeus_api
@@ -11,18 +12,35 @@ class MessageHandler:
     y la generación de respuestas.
     """
     
-    def __init__(self, storage_dir='conversations'):
-        """
-        Inicializa el manejador de mensajes.
+    def __init__(self, data_dir='data'):
+        self.data_dir = data_dir
+        os.makedirs(data_dir, exist_ok=True)
+        self.conversations_dir = os.path.join(data_dir, 'conversations')
+        os.makedirs(self.conversations_dir, exist_ok=True)
         
-        Args:
-            storage_dir (str): Directorio donde se almacenarán las conversaciones
-        """
-        self.storage_dir = storage_dir
+        # Directorio para conversaciones archivadas
+        self.archived_dir = os.path.join(data_dir, 'archived')
+        os.makedirs(self.archived_dir, exist_ok=True)
         
-        # Crear directorio de almacenamiento si no existe
-        if not os.path.exists(storage_dir):
-            os.makedirs(storage_dir)
+        # Archivos para metadatos de conversaciones (estados y etiquetas)
+        self.metadata_file = os.path.join(data_dir, 'conversation_metadata.json')
+        self.load_metadata()
+    
+    def load_metadata(self):
+        """Cargar metadatos de conversaciones (estados y etiquetas)"""
+        if os.path.exists(self.metadata_file):
+            try:
+                with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                    self.metadata = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                self.metadata = {'tags': {}, 'status': {}}
+        else:
+            self.metadata = {'tags': {}, 'status': {}}
+    
+    def save_metadata(self):
+        """Guardar metadatos de conversaciones"""
+        with open(self.metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(self.metadata, f, ensure_ascii=False, indent=2)
     
     def process_message(self, from_number, message_type, message_content, message_id=None, timestamp=None):
         """
@@ -30,7 +48,7 @@ class MessageHandler:
         
         Args:
             from_number (str): Número de teléfono del remitente
-            message_type (str): Tipo de mensaje (text, image, audio, document, etc.)
+            message_type (str): Tipo de mensaje
             message_content (str): Contenido del mensaje
             message_id (str, optional): ID del mensaje
             timestamp (str, optional): Marca de tiempo del mensaje
@@ -50,48 +68,220 @@ class MessageHandler:
         return response
     
     def save_message(self, phone_number, direction, msg_type, content, message_id=None, timestamp=None, source="whatsapp"):
-        """
-        Guarda un mensaje en el historial de conversaciones.
+        # Normalizar número de teléfono
+        phone_number = self.normalize_phone_number(phone_number)
         
-        Args:
-            phone_number (str): Número de teléfono
-            direction (str): Dirección del mensaje ('received' o 'sent')
-            msg_type (str): Tipo de mensaje
-            content (str): Contenido del mensaje
-            message_id (str, optional): ID del mensaje
-            timestamp (str, optional): Marca de tiempo del mensaje
-            source (str, optional): Origen del mensaje ('whatsapp', 'sms', 'email'). Por defecto 'whatsapp'.
-        """
-        # Normalizar el número de teléfono para usarlo como nombre de archivo
-        filename = self._normalize_phone(phone_number)
-        filepath = os.path.join(self.storage_dir, f"{filename}.json")
+        # Crear directorio para el número si no existe
+        conversation_dir = os.path.join(self.conversations_dir, phone_number)
+        os.makedirs(conversation_dir, exist_ok=True)
         
-        # Obtener la conversación existente o crear una nueva
-        if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                conversation = json.load(f)
+        # Archivo de mensajes
+        messages_file = os.path.join(conversation_dir, 'messages.json')
+        
+        # Cargar mensajes existentes o crear lista vacía
+        if os.path.exists(messages_file):
+            with open(messages_file, 'r', encoding='utf-8') as f:
+                try:
+                    messages = json.load(f)
+                except json.JSONDecodeError:
+                    messages = []
         else:
-            conversation = {
-                "phone_number": phone_number,
-                "messages": []
-            }
+            messages = []
         
-        # Crear el nuevo mensaje
+        # Crear nuevo mensaje
         message = {
             "direction": direction,
             "type": msg_type,
             "content": content,
             "timestamp": timestamp or datetime.now().isoformat(),
             "message_id": message_id,
-            "source": source  # Añadir el origen del mensaje
+            "source": source
         }
         
-        # Agregar el mensaje a la conversación
-        conversation["messages"].append(message)
+        # Añadir mensaje a la lista
+        messages.append(message)
         
-        # Guardar la conversación actualizada
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(conversation, f, indent=2, ensure_ascii=False)
+        # Guardar mensajes
+        with open(messages_file, 'w', encoding='utf-8') as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
+        
+        # Si es un mensaje nuevo recibido, establecer estado como 'new' si no tiene estado
+        if direction == 'received' and phone_number not in self.metadata['status']:
+            self.set_conversation_status(phone_number, 'new')
+        
+        return message
+    
+    def get_conversations(self, include_archived=False):
+        """Obtener lista de todas las conversaciones"""
+        conversations = []
+        
+        # Directorios a recorrer
+        dirs_to_check = [self.conversations_dir]
+        if include_archived:
+            dirs_to_check.append(self.archived_dir)
+        
+        # Recorrer directorios de conversaciones
+        for base_dir in dirs_to_check:
+            if not os.path.exists(base_dir):
+                continue
+                
+            for phone_number in os.listdir(base_dir):
+                conversation_dir = os.path.join(base_dir, phone_number)
+                if os.path.isdir(conversation_dir):
+                    messages_file = os.path.join(conversation_dir, 'messages.json')
+                    if os.path.exists(messages_file):
+                        with open(messages_file, 'r', encoding='utf-8') as f:
+                            try:
+                                messages = json.load(f)
+                                # Determinar la fuente más reciente (whatsapp, sms, email)
+                                source = "whatsapp"  # valor por defecto
+                                for msg in reversed(messages):
+                                    if "source" in msg:
+                                        source = msg["source"]
+                                        break
+                                
+                                # Determinar si está archivada
+                                is_archived = base_dir == self.archived_dir
+                                
+                                # Obtener etiquetas y estado
+                                tags = self.get_conversation_tags(phone_number)
+                                status = self.get_conversation_status(phone_number)
+                                
+                                conversations.append({
+                                    'phone_number': phone_number,
+                                    'messages': messages,
+                                    'source': source,
+                                    'archived': is_archived,
+                                    'tags': tags,
+                                    'status': status
+                                })
+                            except json.JSONDecodeError:
+                                pass
+        
+        # Ordenar conversaciones por timestamp del último mensaje (más reciente primero)
+        conversations.sort(key=lambda x: x['messages'][-1]['timestamp'] if x['messages'] else '', reverse=True)
+        
+        return conversations
+    
+    def get_conversation_tags(self, phone_number):
+        """Obtener etiquetas de una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        return self.metadata['tags'].get(phone_number, [])
+    
+    def set_conversation_tags(self, phone_number, tags):
+        """Establecer etiquetas para una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        self.metadata['tags'][phone_number] = tags
+        self.save_metadata()
+        return tags
+    
+    def add_conversation_tag(self, phone_number, tag):
+        """Añadir una etiqueta a una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        if phone_number not in self.metadata['tags']:
+            self.metadata['tags'][phone_number] = []
+        
+        if tag not in self.metadata['tags'][phone_number]:
+            self.metadata['tags'][phone_number].append(tag)
+            self.save_metadata()
+        
+        return self.metadata['tags'][phone_number]
+    
+    def remove_conversation_tag(self, phone_number, tag):
+        """Eliminar una etiqueta de una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        if phone_number in self.metadata['tags'] and tag in self.metadata['tags'][phone_number]:
+            self.metadata['tags'][phone_number].remove(tag)
+            self.save_metadata()
+        
+        return self.metadata['tags'].get(phone_number, [])
+    
+    def get_conversation_status(self, phone_number):
+        """Obtener estado de una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        return self.metadata['status'].get(phone_number, 'new')
+    
+    def set_conversation_status(self, phone_number, status):
+        """Establecer estado para una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        self.metadata['status'][phone_number] = status
+        self.save_metadata()
+        return status
+    
+    def archive_conversation(self, phone_number):
+        """Archivar una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        source_dir = os.path.join(self.conversations_dir, phone_number)
+        target_dir = os.path.join(self.archived_dir, phone_number)
+        
+        if os.path.exists(source_dir):
+            # Crear directorio de destino si no existe
+            os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+            
+            # Mover directorio de conversación a archivados
+            if os.path.exists(target_dir):
+                shutil.rmtree(target_dir)  # Eliminar directorio de destino si ya existe
+            
+            shutil.move(source_dir, target_dir)
+            return True
+        
+        return False
+    
+    def unarchive_conversation(self, phone_number):
+        """Desarchivar una conversación"""
+        phone_number = self.normalize_phone_number(phone_number)
+        source_dir = os.path.join(self.archived_dir, phone_number)
+        target_dir = os.path.join(self.conversations_dir, phone_number)
+        
+        if os.path.exists(source_dir):
+            # Crear directorio de destino si no existe
+            os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+            
+            # Mover directorio de conversación a activos
+            if os.path.exists(target_dir):
+                shutil.rmtree(target_dir)  # Eliminar directorio de destino si ya existe
+            
+            shutil.move(source_dir, target_dir)
+            return True
+        
+        return False
+    
+    def export_conversation(self, phone_number):
+        """Exportar una conversación a formato JSON"""
+        phone_number = self.normalize_phone_number(phone_number)
+        
+        # Buscar la conversación en activos o archivados
+        conversation_dir = os.path.join(self.conversations_dir, phone_number)
+        is_archived = False
+        
+        if not os.path.exists(conversation_dir):
+            conversation_dir = os.path.join(self.archived_dir, phone_number)
+            is_archived = True
+            
+            if not os.path.exists(conversation_dir):
+                return None  # No se encontró la conversación
+        
+        messages_file = os.path.join(conversation_dir, 'messages.json')
+        if not os.path.exists(messages_file):
+            return None
+        
+        with open(messages_file, 'r', encoding='utf-8') as f:
+            try:
+                messages = json.load(f)
+            except json.JSONDecodeError:
+                return None
+        
+        # Crear objeto de exportación
+        export_data = {
+            'phone_number': phone_number,
+            'messages': messages,
+            'tags': self.get_conversation_tags(phone_number),
+            'status': self.get_conversation_status(phone_number),
+            'archived': is_archived,
+            'exported_at': datetime.now().isoformat()
+        }
+        
+        return export_data
     
     def generate_response(self, from_number, message_type, message_content):
         """
@@ -327,7 +517,7 @@ class MessageHandler:
         
         return None
     
-    def _normalize_phone(self, phone_number):
+    def normalize_phone_number(self, phone_number):
         """
         Normaliza un número de teléfono para usarlo como nombre de archivo.
         

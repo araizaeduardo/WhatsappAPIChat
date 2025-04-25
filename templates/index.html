@@ -138,6 +138,73 @@
             clear: both;
             display: table;
         }
+        
+        /* Estilos para etiquetas */
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 2px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background-color: #e9ecef;
+            color: #495057;
+            cursor: pointer;
+        }
+        
+        .tag:hover {
+            background-color: #dee2e6;
+        }
+        
+        .tag .tag-remove {
+            margin-left: 5px;
+            color: #6c757d;
+        }
+        
+        .tag .tag-remove:hover {
+            color: #dc3545;
+        }
+        
+        /* Estilos para estados */
+        .status-new {
+            background-color: #cff4fc;
+            color: #055160;
+        }
+        
+        .status-in-progress {
+            background-color: #fff3cd;
+            color: #664d03;
+        }
+        
+        .status-resolved {
+            background-color: #d1e7dd;
+            color: #0f5132;
+        }
+        
+        .status-follow-up {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+        
+        /* Indicador de canal en la lista de conversaciones */
+        .channel-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .channel-whatsapp {
+            background-color: #25D366;
+        }
+        
+        .channel-sms {
+            background-color: #2196F3;
+        }
+        
+        .channel-email {
+            background-color: #FF5722;
+        }
     </style>
 {% endblock %}
 
@@ -208,13 +275,55 @@
             <!-- Lista de conversaciones -->
             <div class="col-md-3">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Conversaciones</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-sliders-h"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" id="refreshConversations"><i class="fas fa-sync-alt me-2"></i>Actualizar</a></li>
+                                <li><a class="dropdown-item" href="#" id="exportConversations"><i class="fas fa-file-export me-2"></i>Exportar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="archiveSelected"><i class="fas fa-archive me-2"></i>Archivar seleccionados</a></li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="conversation-list" id="conversationList">
-                        <!-- Las conversaciones se cargarán aquí dinámicamente -->
-                        <div class="text-center p-3 text-muted">
-                            Cargando conversaciones...
+                    <div class="card-body p-2">
+                        <!-- Filtros -->
+                        <div class="mb-3">
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" class="form-control" id="searchConversation" placeholder="Buscar conversación...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <select id="channelFilter" class="form-select form-select-sm mb-2">
+                                <option value="all">Todos los canales</option>
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="sms">SMS</option>
+                                <option value="email">Email</option>
+                            </select>
+                            <select id="statusFilter" class="form-select form-select-sm mb-2">
+                                <option value="all">Todos los estados</option>
+                                <option value="new">Nuevos</option>
+                                <option value="in-progress">En progreso</option>
+                                <option value="resolved">Resueltos</option>
+                                <option value="follow-up">Seguimiento</option>
+                            </select>
+                            
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="showArchived">
+                                <label class="form-check-label" for="showArchived">Mostrar archivados</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 pt-2">
+                        <div class="conversation-list" id="conversationList">
+                            <!-- Las conversaciones se cargarán aquí dinámicamente -->
+                            <div class="text-center p-3 text-muted">
+                                Cargando conversaciones...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -223,9 +332,45 @@
             <!-- Área de mensajes -->
             <div class="col-md-9">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0" id="currentContact">Selecciona una conversación</h5>
+                        <div id="conversationTools" style="display: none;">
+                            <!-- Estado de la conversación -->
+                            <div class="btn-group btn-group-sm me-2">
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-tag me-1"></i><span id="currentStatus">Estado</span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item status-item" data-status="new" href="#">Nuevo</a></li>
+                                    <li><a class="dropdown-item status-item" data-status="in-progress" href="#">En Progreso</a></li>
+                                    <li><a class="dropdown-item status-item" data-status="resolved" href="#">Resuelto</a></li>
+                                    <li><a class="dropdown-item status-item" data-status="follow-up" href="#">Seguimiento</a></li>
+                                </ul>
+                            </div>
+                            
+                            <!-- Opciones adicionales -->
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary" id="archiveConversation">
+                                    <i class="fas fa-archive"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="exportConversation">
+                                    <i class="fas fa-file-export"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                    
+                    <!-- Etiquetas para la conversación -->
+                    <div class="card-header bg-light p-2" id="tagsContainer" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2"><i class="fas fa-tags"></i> Etiquetas:</span>
+                            <div class="tags-list d-flex flex-wrap" id="conversationTags"></div>
+                            <button class="btn btn-sm btn-link ms-auto" id="addTagBtn">
+                                <i class="fas fa-plus"></i> Añadir
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="card-body">
                         <div class="message-container" id="messageContainer">
                             <div class="text-center text-muted">
@@ -619,8 +764,485 @@
             });
         }
         
+        // Variables para almacenar el estado de las conversaciones
+        let conversationsData = [];
+        let currentConversationData = null;
+        let conversationTags = {}; // Objeto para almacenar etiquetas por conversación
+        let conversationStatus = {}; // Objeto para almacenar estado por conversación
+        
         // Actualizar las conversaciones cada 15 segundos
         setInterval(loadConversations, 15000);
+        
+        // Inicializar filtros y eventos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Evento para filtrar por canal
+            document.getElementById('channelFilter').addEventListener('change', filterConversations);
+            
+            // Evento para filtrar por estado
+            document.getElementById('statusFilter').addEventListener('change', filterConversations);
+            
+            // Evento para buscar conversaciones
+            document.getElementById('searchButton').addEventListener('click', function() {
+                filterConversations();
+            });
+            
+            document.getElementById('searchConversation').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    filterConversations();
+                }
+            });
+            
+            // Evento para actualizar conversaciones
+            document.getElementById('refreshConversations').addEventListener('click', function(e) {
+                e.preventDefault();
+                loadConversations();
+            });
+            
+            // Evento para mostrar/ocultar conversaciones archivadas
+            document.getElementById('showArchived').addEventListener('change', function() {
+                loadConversations();
+            });
+            
+            // Eventos para cambiar estado de conversación
+            document.querySelectorAll('.status-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (currentPhoneNumber) {
+                        const status = this.getAttribute('data-status');
+                        setConversationStatus(currentPhoneNumber, status);
+                    }
+                });
+            });
+            
+            // Evento para añadir etiqueta
+            document.getElementById('addTagBtn').addEventListener('click', function() {
+                if (currentPhoneNumber) {
+                    const tagName = prompt('Ingrese el nombre de la etiqueta:');
+                    if (tagName && tagName.trim() !== '') {
+                        addTag(currentPhoneNumber, tagName.trim());
+                    }
+                }
+            });
+            
+            // Evento para archivar conversación
+            document.getElementById('archiveConversation').addEventListener('click', function() {
+                if (currentPhoneNumber && confirm('¿Estás seguro de archivar esta conversación?')) {
+                    archiveConversation(currentPhoneNumber);
+                }
+            });
+            
+            // Evento para exportar conversación
+            document.getElementById('exportConversation').addEventListener('click', function() {
+                if (currentPhoneNumber) {
+                    exportConversation(currentPhoneNumber);
+                }
+            });
+        });
+        
+        // Función para filtrar conversaciones
+        function filterConversations() {
+            const channelFilter = document.getElementById('channelFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const searchText = document.getElementById('searchConversation').value.toLowerCase();
+            
+            // Filtrar las conversaciones según los criterios
+            const filteredConversations = conversationsData.filter(conversation => {
+                // Filtrar por canal
+                if (channelFilter !== 'all') {
+                    const source = conversation.source || 'whatsapp';
+                    if (source !== channelFilter) return false;
+                }
+                
+                // Filtrar por estado
+                if (statusFilter !== 'all') {
+                    const status = conversationStatus[conversation.phone_number] || 'new';
+                    if (status !== statusFilter) return false;
+                }
+                
+                // Filtrar por texto de búsqueda
+                if (searchText) {
+                    // Buscar en número de teléfono
+                    if (conversation.phone_number.toLowerCase().includes(searchText)) {
+                        return true;
+                    }
+                    
+                    // Buscar en mensajes
+                    if (conversation.messages && conversation.messages.length > 0) {
+                        return conversation.messages.some(msg => 
+                            msg.content.toLowerCase().includes(searchText)
+                        );
+                    }
+                    
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Actualizar la lista de conversaciones con los resultados filtrados
+            updateConversationsList(filteredConversations);
+        }
+        
+        // Función para actualizar la lista de conversaciones con los resultados filtrados
+        function updateConversationsList(conversations) {
+            const conversationList = document.getElementById('conversationList');
+            conversationList.innerHTML = '';
+            
+            if (conversations.length === 0) {
+                conversationList.innerHTML = '<div class="text-center p-3 text-muted">No se encontraron conversaciones</div>';
+                return;
+            }
+            
+            conversations.forEach(conversation => {
+                const contactItem = document.createElement('div');
+                contactItem.className = 'contact-item';
+                contactItem.dataset.phoneNumber = conversation.phone_number;
+                
+                // Verificar si es el contacto activo
+                if (currentPhoneNumber === conversation.phone_number) {
+                    contactItem.classList.add('active');
+                }
+                
+                // Obtener el último mensaje para mostrar una vista previa
+                let lastMessage = 'No hay mensajes';
+                let lastTime = '';
+                let isNewMessage = false;
+                
+                if (conversation.messages && conversation.messages.length > 0) {
+                    const lastMsg = conversation.messages[conversation.messages.length - 1];
+                    lastMessage = lastMsg.content.length > 30 ? 
+                        lastMsg.content.substring(0, 30) + '...' : 
+                        lastMsg.content;
+                    
+                    // Mostrar la fecha del último mensaje (código existente para formatear fecha)
+                    // ...
+                    
+                    // Verificar si es un mensaje nuevo (código existente)
+                    // ...
+                }
+                
+                // Añadir clase de nuevo mensaje si corresponde
+                if (isNewMessage && conversation.phone_number !== currentPhoneNumber) {
+                    contactItem.classList.add('new-message');
+                }
+                
+                // Determinar el icono según el canal de comunicación
+                const conversationSource = conversation.source || 'whatsapp';
+                let sourceIconHtml = '';
+                
+                switch(conversationSource) {
+                    case 'whatsapp':
+                        sourceIconHtml = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Conversación de WhatsApp">';
+                        break;
+                    case 'sms':
+                        sourceIconHtml = '<img src="https://cdn-icons-png.flaticon.com/512/3095/3095849.png" class="message-source-icon source-sms" alt="SMS" title="Conversación de SMS">';
+                        break;
+                    case 'email':
+                        sourceIconHtml = '<img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" class="message-source-icon source-email" alt="Email" title="Conversación de Email">';
+                        break;
+                    default:
+                        sourceIconHtml = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Conversación de WhatsApp">';
+                }
+                
+                // Obtener el estado de la conversación
+                const status = conversationStatus[conversation.phone_number] || 'new';
+                const statusBadge = `<span class="badge status-${status} ms-1">${getStatusLabel(status)}</span>`;
+                
+                contactItem.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <strong>
+                            ${sourceIconHtml}
+                            ${conversation.phone_number}
+                            ${statusBadge}
+                        </strong>
+                        <small>${lastTime}</small>
+                    </div>
+                    <div class="text-muted">${lastMessage}</div>
+                    <span class="new-message-indicator" title="Nuevo mensaje"></span>
+                `;
+                
+                contactItem.addEventListener('click', function() {
+                    // Remover la clase active de todos los contactos
+                    document.querySelectorAll('.contact-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    
+                    // Agregar la clase active al contacto seleccionado
+                    this.classList.add('active');
+                    
+                    // Remover la clase new-message cuando se selecciona
+                    this.classList.remove('new-message');
+                    
+                    // Cargar los mensajes de esta conversación
+                    currentPhoneNumber = this.dataset.phoneNumber;
+                    document.getElementById('currentContact').textContent = currentPhoneNumber;
+                    loadMessages(currentPhoneNumber);
+                    
+                    // Mostrar las herramientas de conversación
+                    document.getElementById('conversationTools').style.display = 'block';
+                    document.getElementById('tagsContainer').style.display = 'block';
+                    
+                    // Actualizar el estado actual
+                    updateCurrentStatus(currentPhoneNumber);
+                    
+                    // Cargar las etiquetas de la conversación
+                    loadConversationTags(currentPhoneNumber);
+                    
+                    // Guardar la conversación actual
+                    currentConversationData = conversation;
+                    
+                    // Habilitar el envío de mensajes
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendButton').disabled = false;
+                });
+                
+                conversationList.appendChild(contactItem);
+            });
+        }
+        
+        // Función para establecer el estado de una conversación
+        function setConversationStatus(phoneNumber, status) {
+            // Guardar en el servidor
+            fetch(`/api/conversation/${phoneNumber}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar estado local
+                conversationStatus[phoneNumber] = status;
+                
+                // Actualizar la interfaz
+                updateCurrentStatus(phoneNumber);
+                console.log(`Estado de conversación ${phoneNumber} cambiado a: ${status}`);
+                
+                // Actualizar la lista de conversaciones para reflejar el cambio
+                filterConversations();
+            })
+            .catch(error => {
+                console.error('Error al cambiar el estado:', error);
+                alert('Error al cambiar el estado de la conversación');
+            });
+        }
+        
+        // Función para actualizar el estado actual en la interfaz
+        function updateCurrentStatus(phoneNumber) {
+            const status = conversationStatus[phoneNumber] || 'new';
+            const statusLabel = getStatusLabel(status);
+            document.getElementById('currentStatus').textContent = statusLabel;
+        }
+        
+        // Función para obtener la etiqueta de un estado
+        function getStatusLabel(status) {
+            switch(status) {
+                case 'new': return 'Nuevo';
+                case 'in-progress': return 'En Progreso';
+                case 'resolved': return 'Resuelto';
+                case 'follow-up': return 'Seguimiento';
+                default: return 'Nuevo';
+            }
+        }
+        
+        // Función para añadir una etiqueta a una conversación
+        function addTag(phoneNumber, tagName) {
+            // Guardar en el servidor
+            fetch(`/api/conversation/${phoneNumber}/tags`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ tag: tagName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar etiquetas locales
+                conversationTags[phoneNumber] = data.tags;
+                loadConversationTags(phoneNumber);
+                console.log(`Etiqueta '${tagName}' añadida a la conversación ${phoneNumber}`);
+            })
+            .catch(error => {
+                console.error('Error al añadir etiqueta:', error);
+                alert('Error al añadir la etiqueta');
+            });
+        }
+        
+        // Función para eliminar una etiqueta de una conversación
+        function removeTag(phoneNumber, tagName) {
+            // Eliminar en el servidor
+            fetch(`/api/conversation/${phoneNumber}/tags`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ tag: tagName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar etiquetas locales
+                conversationTags[phoneNumber] = data.tags;
+                loadConversationTags(phoneNumber);
+                console.log(`Etiqueta '${tagName}' eliminada de la conversación ${phoneNumber}`);
+            })
+            .catch(error => {
+                console.error('Error al eliminar etiqueta:', error);
+                alert('Error al eliminar la etiqueta');
+            });
+        }
+        
+        // Función para cargar las etiquetas de una conversación
+        function loadConversationTags(phoneNumber) {
+            const tagsContainer = document.getElementById('conversationTags');
+            tagsContainer.innerHTML = '';
+            
+            const tags = conversationTags[phoneNumber] || [];
+            
+            if (tags.length === 0) {
+                tagsContainer.innerHTML = '<span class="text-muted">Sin etiquetas</span>';
+                return;
+            }
+            
+            tags.forEach(tag => {
+                const tagElement = document.createElement('div');
+                tagElement.className = 'tag';
+                tagElement.innerHTML = `
+                    ${tag}
+                    <span class="tag-remove" data-tag="${tag}"><i class="fas fa-times"></i></span>
+                `;
+                
+                // Evento para eliminar etiqueta
+                tagElement.querySelector('.tag-remove').addEventListener('click', function() {
+                    const tagName = this.getAttribute('data-tag');
+                    removeTag(phoneNumber, tagName);
+                });
+                
+                tagsContainer.appendChild(tagElement);
+            });
+        }
+        
+        // Función para archivar una conversación
+        function archiveConversation(phoneNumber) {
+            // Archivar en el servidor
+            fetch(`/api/conversation/${phoneNumber}/archive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Conversación ${phoneNumber} archivada`);
+                    
+                    // Eliminar la conversación de la lista
+                    conversationsData = conversationsData.filter(conv => conv.phone_number !== phoneNumber);
+                    
+                    // Actualizar la interfaz
+                    filterConversations();
+                    
+                    // Limpiar la vista de mensajes
+                    document.getElementById('currentContact').textContent = 'Selecciona una conversación';
+                    document.getElementById('messageContainer').innerHTML = `
+                        <div class="text-center text-muted">
+                            <p>Selecciona una conversación para ver los mensajes</p>
+                        </div>
+                    `;
+                    
+                    // Ocultar las herramientas de conversación
+                    document.getElementById('conversationTools').style.display = 'none';
+                    document.getElementById('tagsContainer').style.display = 'none';
+                    
+                    // Deshabilitar el envío de mensajes
+                    document.getElementById('messageInput').disabled = true;
+                    document.getElementById('sendButton').disabled = true;
+                    
+                    currentPhoneNumber = null;
+                } else {
+                    alert('Error al archivar la conversación: ' + (data.error || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error al archivar conversación:', error);
+                alert('Error al archivar la conversación');
+            });
+        }
+        
+        // Función para exportar una conversación
+        function exportConversation(phoneNumber) {
+            // Exportar desde el servidor
+            fetch(`/api/conversation/${phoneNumber}/export`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al exportar la conversación');
+                }
+                return response.json();
+            })
+            .then(exportData => {
+                // Convertir a JSON
+                const jsonData = JSON.stringify(exportData, null, 2);
+                
+                // Crear un blob y un enlace para descargar
+                const blob = new Blob([jsonData], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                
+                // Crear un enlace y simular clic para descargar
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `conversation_${phoneNumber}_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Limpiar
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 0);
+            })
+            .catch(error => {
+                console.error('Error al exportar conversación:', error);
+                alert('Error al exportar la conversación');
+            });
+        }
+        
+        // Modificar la función loadConversations para guardar los datos
+        loadConversations = function() {
+            // Determinar si incluir conversaciones archivadas
+            const includeArchived = document.getElementById('showArchived') && 
+                                    document.getElementById('showArchived').checked;
+            
+            fetch(`/api/conversations?include_archived=${includeArchived}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Guardar los datos de conversaciones
+                    conversationsData = data.conversations;
+                    
+                    // Guardar etiquetas y estados
+                    conversationsData.forEach(conv => {
+                        if (conv.tags) {
+                            conversationTags[conv.phone_number] = conv.tags;
+                        }
+                        if (conv.status) {
+                            conversationStatus[conv.phone_number] = conv.status;
+                        }
+                    });
+                    
+                    // Aplicar filtros
+                    filterConversations();
+                    
+                    // Si hay una conversación seleccionada, actualizar su estado y etiquetas
+                    if (currentPhoneNumber) {
+                        updateCurrentStatus(currentPhoneNumber);
+                        loadConversationTags(currentPhoneNumber);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar las conversaciones:', error);
+                    document.getElementById('conversationList').innerHTML = 
+                        '<div class="text-center p-3 text-danger">Error al cargar las conversaciones</div>';
+                });
+        };
         
         // Función para mostrar notificación del navegador
         function showBrowserNotification(phoneNumber, message) {

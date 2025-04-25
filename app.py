@@ -269,26 +269,104 @@ def remove_tour(tour_id):
 @login_required
 def get_conversations():
     """Endpoint para obtener todas las conversaciones"""
-    conversations = []
-    
-    # Obtener la lista de archivos en el directorio de conversaciones
-    if os.path.exists(message_handler.storage_dir):
-        for filename in os.listdir(message_handler.storage_dir):
-            if filename.endswith('.json'):
-                filepath = os.path.join(message_handler.storage_dir, filename)
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    conversation = json.load(f)
-                    conversations.append(conversation)
-    
+    include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+    conversations = message_handler.get_conversations(include_archived=include_archived)
     return jsonify({"conversations": conversations})
+
+@app.route('/api/conversation/<phone_number>/tags', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def manage_conversation_tags(phone_number):
+    """Gestionar etiquetas de una conversación"""
+    if request.method == 'GET':
+        # Obtener etiquetas
+        tags = message_handler.get_conversation_tags(phone_number)
+        return jsonify({'tags': tags})
+    
+    elif request.method == 'POST':
+        # Añadir etiqueta
+        data = request.json
+        if 'tag' not in data:
+            return jsonify({'error': 'Se requiere una etiqueta'}), 400
+        
+        tags = message_handler.add_conversation_tag(phone_number, data['tag'])
+        return jsonify({'tags': tags})
+    
+    elif request.method == 'DELETE':
+        # Eliminar etiqueta
+        data = request.json
+        if 'tag' not in data:
+            return jsonify({'error': 'Se requiere una etiqueta'}), 400
+        
+        tags = message_handler.remove_conversation_tag(phone_number, data['tag'])
+        return jsonify({'tags': tags})
+
+@app.route('/api/conversation/<phone_number>/status', methods=['GET', 'PUT'])
+@login_required
+def manage_conversation_status(phone_number):
+    """Gestionar estado de una conversación"""
+    if request.method == 'GET':
+        # Obtener estado
+        status = message_handler.get_conversation_status(phone_number)
+        return jsonify({'status': status})
+    
+    elif request.method == 'PUT':
+        # Actualizar estado
+        data = request.json
+        if 'status' not in data:
+            return jsonify({'error': 'Se requiere un estado'}), 400
+        
+        # Validar estado
+        valid_statuses = ['new', 'in-progress', 'resolved', 'follow-up']
+        if data['status'] not in valid_statuses:
+            return jsonify({'error': f'Estado no válido. Debe ser uno de: {valid_statuses}'}), 400
+        
+        status = message_handler.set_conversation_status(phone_number, data['status'])
+        return jsonify({'status': status})
+
+@app.route('/api/conversation/<phone_number>/archive', methods=['POST'])
+@login_required
+def archive_conversation(phone_number):
+    """Archivar una conversación"""
+    success = message_handler.archive_conversation(phone_number)
+    if success:
+        return jsonify({'success': True, 'message': 'Conversación archivada correctamente'})
+    else:
+        return jsonify({'success': False, 'error': 'No se pudo archivar la conversación'}), 404
+
+@app.route('/api/conversation/<phone_number>/unarchive', methods=['POST'])
+@login_required
+def unarchive_conversation(phone_number):
+    """Desarchivar una conversación"""
+    success = message_handler.unarchive_conversation(phone_number)
+    if success:
+        return jsonify({'success': True, 'message': 'Conversación desarchivada correctamente'})
+    else:
+        return jsonify({'success': False, 'error': 'No se pudo desarchivar la conversación'}), 404
+
+@app.route('/api/conversation/<phone_number>/export', methods=['GET'])
+@login_required
+def export_conversation(phone_number):
+    """Exportar una conversación"""
+    export_data = message_handler.export_conversation(phone_number)
+    if export_data:
+        return jsonify(export_data)
+    else:
+        return jsonify({'error': 'No se pudo exportar la conversación'}), 404
 
 @app.route('/api/messages/<phone_number>')
 @login_required
 def get_messages(phone_number):
     """Endpoint para obtener una conversación específica"""
-    conversation = message_handler.get_conversation_history(phone_number)
+    # Buscar la conversación en las conversaciones activas y archivadas
+    conversations = message_handler.get_conversations(include_archived=True)
+    
+    # Buscar la conversación por número de teléfono
+    conversation = next((conv for conv in conversations if conv['phone_number'] == phone_number), None)
     
     if conversation:
+        # Añadir etiquetas y estado
+        conversation['tags'] = message_handler.get_conversation_tags(phone_number)
+        conversation['status'] = message_handler.get_conversation_status(phone_number)
         return jsonify(conversation)
     else:
         return jsonify({"error": "Conversación no encontrada"}), 404
