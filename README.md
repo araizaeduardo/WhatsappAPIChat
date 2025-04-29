@@ -10,7 +10,7 @@ Un sistema completo para integrar la API de WhatsApp Business con un backend en 
 
 ### Funcionalidades de WhatsApp
 - ✅ Verificación de webhook de WhatsApp
-- 📨 Recepción de mensajes de WhatsApp (texto, imágenes, audio, documentos)
+- 📫 Recepción de mensajes de WhatsApp (texto, imágenes, audio, documentos)
 - 📤 Envío de respuestas automáticas
 - 🧠 Sistema inteligente de procesamiento de mensajes
 - 💾 Almacenamiento de conversaciones
@@ -18,14 +18,25 @@ Un sistema completo para integrar la API de WhatsApp Business con un backend en 
 - 🔄 Actualización en tiempo real de las conversaciones
 - 🔔 Notificaciones visuales y sonoras para nuevos mensajes
 - 📅 Manejo robusto de diferentes formatos de fecha
+- 🤖 Sistema de detección y bloqueo de bots
+- 🚫 Lista negra para números problemáticos
+- 📊 Análisis de conversaciones para detectar patrones repetitivos
 
 ### Funcionalidades de Agencia de Viajes
-- 🏝️ Base de datos SQLite para tours y paquetes vacacionales
+- 🌎 Base de datos SQLite para tours y paquetes vacacionales
 - 💻 Panel de administración CRUD para tours
 - ✈️ Integración con API de Amadeus para búsqueda de vuelos
 - 🔍 Búsqueda de tours por destino
 - 📅 Consulta de disponibilidad y precios
 - 💬 Comandos específicos para consultas de viajes
+
+### Funcionalidades Multicanal
+- 📱 Soporte para mensajes de WhatsApp
+- 📲 Integración con SMS (Telnyx)
+- 📧 Preparación para integración con Email
+- 🌐 Interfaz unificada para todos los canales
+- 🎨 Identificación visual de cada canal con iconos
+- 📁 Gestión de conversaciones por canal
 
 ## 🛠️ Tecnologías Utilizadas
 

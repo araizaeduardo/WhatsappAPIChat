@@ -5,6 +5,26 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-04-28
+
+### Añadido
+- Sistema completo de detección y bloqueo de bots
+- Lista negra para números problemáticos
+- Panel de administración para gestionar bots
+- Herramienta de análisis de conversaciones para detectar patrones repetitivos
+- Límites de frecuencia para respuestas automáticas
+- Etiquetado automático de conversaciones con bots
+- Soporte para múltiples canales de comunicación (WhatsApp, SMS)
+- Identificación visual de mensajes por canal
+- Filtros por canal en la interfaz de usuario
+
+### Mejorado
+- Interfaz de usuario con nuevos iconos y menús
+- Manejo de conversaciones archivadas
+- Sistema de etiquetas y estados para conversaciones
+- Ordenamiento de conversaciones por fecha
+- Compatibilidad con diferentes formatos de timestamp
+
 ## [1.3.1] - 2025-04-16
 
 ### Corregido

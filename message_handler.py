@@ -1,8 +1,9 @@
 import json
 import os
 import re
-import shutil
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
+from collections import defaultdict, Counter
 from tours_db import search_tours, get_tour_by_id, format_tour_info, get_all_tours
 from amadeus_api import amadeus_api
 
@@ -15,32 +16,65 @@ class MessageHandler:
     def __init__(self, data_dir='data'):
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
-        self.conversations_dir = os.path.join(data_dir, 'conversations')
-        os.makedirs(self.conversations_dir, exist_ok=True)
         
-        # Directorio para conversaciones archivadas
+        # Mantener compatibilidad con la ruta original
+        self.conversations_dir = os.path.join(data_dir, 'conversations')
         self.archived_dir = os.path.join(data_dir, 'archived')
+        
+        # Crear directorios si no existen
+        os.makedirs(self.conversations_dir, exist_ok=True)
         os.makedirs(self.archived_dir, exist_ok=True)
         
-        # Archivos para metadatos de conversaciones (estados y etiquetas)
+        # Cargar o crear archivo de metadatos
         self.metadata_file = os.path.join(data_dir, 'conversation_metadata.json')
-        self.load_metadata()
+        self.metadata = self.load_metadata()
+        
+        # Sistema anti-bot
+        self.message_history = defaultdict(list)  # Historial de mensajes por número
+        self.bot_blacklist = set()  # Lista negra de números identificados como bots
+        self.response_timestamps = defaultdict(list)  # Timestamps de respuestas por número
+        self.max_responses_per_hour = 10  # Máximo de respuestas automáticas por hora
+        self.bot_detection_threshold = 3  # Número de mensajes similares para considerar bot
+        
+        # Cargar lista negra si existe
+        self.bot_blacklist_file = os.path.join(data_dir, 'bot_blacklist.json')
+        self.load_bot_blacklist()
     
     def load_metadata(self):
-        """Cargar metadatos de conversaciones (estados y etiquetas)"""
+        """Cargar metadatos de conversaciones o crear si no existe"""
         if os.path.exists(self.metadata_file):
             try:
                 with open(self.metadata_file, 'r', encoding='utf-8') as f:
-                    self.metadata = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                self.metadata = {'tags': {}, 'status': {}}
-        else:
-            self.metadata = {'tags': {}, 'status': {}}
+                    return json.load(f)
+            except json.JSONDecodeError:
+                # Si hay un error al cargar, crear un nuevo archivo
+                pass
+        
+        # Estructura inicial de metadatos
+        return {
+            "tags": {},  # Etiquetas por conversación
+            "status": {}  # Estado por conversación
+        }
     
     def save_metadata(self):
         """Guardar metadatos de conversaciones"""
         with open(self.metadata_file, 'w', encoding='utf-8') as f:
             json.dump(self.metadata, f, ensure_ascii=False, indent=2)
+    
+    def load_bot_blacklist(self):
+        """Cargar lista negra de bots"""
+        if os.path.exists(self.bot_blacklist_file):
+            try:
+                with open(self.bot_blacklist_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.bot_blacklist = set(data.get("blacklist", []))
+            except (json.JSONDecodeError, FileNotFoundError):
+                self.bot_blacklist = set()
+    
+    def save_bot_blacklist(self):
+        """Guardar lista negra de bots"""
+        with open(self.bot_blacklist_file, 'w', encoding='utf-8') as f:
+            json.dump({"blacklist": list(self.bot_blacklist)}, f, ensure_ascii=False, indent=4)
     
     def process_message(self, from_number, message_type, message_content, message_id=None, timestamp=None):
         """
@@ -54,18 +88,142 @@ class MessageHandler:
             timestamp (str, optional): Marca de tiempo del mensaje
             
         Returns:
-            str: Mensaje de respuesta
+            str: Mensaje de respuesta o None si se identifica como bot
         """
+        # Normalizar el número de teléfono
+        from_number = self.normalize_phone_number(from_number)
+        
+        # Verificar si el número está en la lista negra de bots
+        if from_number in self.bot_blacklist:
+            print(f"Mensaje ignorado de número en lista negra: {from_number}")
+            # Guardar el mensaje pero no responder
+            self.save_message(from_number, "received", message_type, message_content, message_id, timestamp)
+            return None
+        
+        # Verificar límite de frecuencia de respuestas
+        if not self.can_send_response(from_number):
+            print(f"Límite de respuestas excedido para: {from_number}")
+            # Guardar el mensaje pero no responder
+            self.save_message(from_number, "received", message_type, message_content, message_id, timestamp)
+            return None
+        
         # Guardar el mensaje en el historial
         self.save_message(from_number, "received", message_type, message_content, message_id, timestamp)
         
+        # Actualizar historial para detección de bots
+        self.update_message_history(from_number, message_content)
+        
+        # Verificar si es un bot basado en patrones repetitivos
+        if self.is_bot(from_number):
+            print(f"Bot detectado: {from_number}")
+            self.bot_blacklist.add(from_number)
+            self.save_bot_blacklist()
+            # Añadir etiqueta de bot a la conversación
+            tags = self.get_conversation_tags(from_number)
+            if "Bot" not in tags:
+                tags.append("Bot")
+                self.set_conversation_tags(from_number, tags)
+            return None
+        
         # Generar respuesta basada en el tipo de mensaje y contenido
         response = self.generate_response(from_number, message_type, message_content)
+        
+        # Registrar timestamp de respuesta para control de frecuencia
+        self.response_timestamps[from_number].append(time.time())
         
         # Guardar la respuesta en el historial
         self.save_message(from_number, "sent", "text", response)
         
         return response
+    
+    def update_message_history(self, phone_number, message_content):
+        """Actualizar historial de mensajes para detección de bots"""
+        # Mantener solo los últimos 10 mensajes
+        if len(self.message_history[phone_number]) >= 10:
+            self.message_history[phone_number].pop(0)
+        
+        self.message_history[phone_number].append(message_content)
+    
+    def is_bot(self, phone_number):
+        """Detectar si un número es un bot basado en patrones repetitivos"""
+        if len(self.message_history[phone_number]) < self.bot_detection_threshold:
+            return False
+        
+        # Contar ocurrencias de cada mensaje
+        message_counts = Counter(self.message_history[phone_number])
+        
+        # Si algún mensaje se repite más del umbral, considerar bot
+        most_common = message_counts.most_common(1)
+        if most_common and most_common[0][1] >= self.bot_detection_threshold:
+            return True
+        
+        return False
+    
+    def can_send_response(self, phone_number):
+        """Verificar si se puede enviar una respuesta basado en límites de frecuencia"""
+        # Obtener timestamps de la última hora
+        one_hour_ago = time.time() - 3600
+        recent_responses = [t for t in self.response_timestamps[phone_number] if t > one_hour_ago]
+        
+        # Actualizar lista de timestamps recientes
+        self.response_timestamps[phone_number] = recent_responses
+        
+        # Verificar si se excede el límite por hora
+        return len(recent_responses) < self.max_responses_per_hour
+    
+    def analyze_existing_conversations(self):
+        """Analizar conversaciones existentes para detectar bots"""
+        print("Analizando conversaciones existentes para detectar bots...")
+        detected_bots = []
+        
+        # Obtener todas las conversaciones (activas y archivadas)
+        conversations = self.get_conversations(include_archived=True)
+        
+        for conversation in conversations:
+            phone_number = conversation['phone_number']
+            messages = conversation['messages']
+            
+            # Saltear si ya está en la lista negra
+            if phone_number in self.bot_blacklist:
+                continue
+            
+            # Filtrar solo mensajes recibidos
+            received_messages = [msg for msg in messages if msg['direction'] == 'received']
+            
+            # Si hay pocos mensajes, no analizar
+            if len(received_messages) < self.bot_detection_threshold:
+                continue
+            
+            # Contar ocurrencias de cada mensaje
+            message_contents = [msg['content'] for msg in received_messages]
+            message_counts = Counter(message_contents)
+            
+            # Verificar si hay mensajes repetidos que superen el umbral
+            most_common = message_counts.most_common(1)
+            if most_common and most_common[0][1] >= self.bot_detection_threshold:
+                bot_message = most_common[0][0]
+                repetitions = most_common[0][1]
+                print(f"Bot detectado: {phone_number} - Mensaje '{bot_message[:30]}...' repetido {repetitions} veces")
+                detected_bots.append({
+                    'phone_number': phone_number,
+                    'message': bot_message,
+                    'repetitions': repetitions
+                })
+                
+                # Añadir a la lista negra
+                self.bot_blacklist.add(phone_number)
+                
+                # Añadir etiqueta de bot a la conversación
+                tags = self.get_conversation_tags(phone_number)
+                if "Bot" not in tags:
+                    tags.append("Bot")
+                    self.set_conversation_tags(phone_number, tags)
+        
+        # Guardar la lista negra actualizada
+        self.save_bot_blacklist()
+        
+        print(f"Análisis completado: {len(detected_bots)} bots detectados")
+        return detected_bots
     
     def save_message(self, phone_number, direction, msg_type, content, message_id=None, timestamp=None, source="whatsapp"):
         # Normalizar número de teléfono
@@ -159,7 +317,38 @@ class MessageHandler:
                                 pass
         
         # Ordenar conversaciones por timestamp del último mensaje (más reciente primero)
-        conversations.sort(key=lambda x: x['messages'][-1]['timestamp'] if x['messages'] else '', reverse=True)
+        def get_timestamp_value(conversation):
+            if not conversation['messages']:
+                return 0  # Si no hay mensajes, poner al final
+            
+            # Obtener el timestamp del último mensaje
+            timestamp = conversation['messages'][-1]['timestamp']
+            
+            # Convertir el timestamp a un valor numérico para comparación
+            try:
+                # Si es un número entero como string, convertirlo a int
+                if isinstance(timestamp, str) and timestamp.isdigit():
+                    return int(timestamp)
+                # Si es un timestamp ISO, convertirlo a datetime y luego a timestamp
+                elif isinstance(timestamp, str):
+                    from datetime import datetime
+                    try:
+                        dt = datetime.fromisoformat(timestamp)
+                        return dt.timestamp()
+                    except ValueError:
+                        # Si no se puede convertir, usar 0
+                        return 0
+                # Si ya es un número, usarlo directamente
+                elif isinstance(timestamp, (int, float)):
+                    return timestamp
+                else:
+                    return 0
+            except Exception as e:
+                print(f"Error al procesar timestamp: {timestamp}, {e}")
+                return 0
+        
+        # Ordenar usando la función auxiliar
+        conversations.sort(key=get_timestamp_value, reverse=True)
         
         return conversations
     

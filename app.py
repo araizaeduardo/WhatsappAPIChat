@@ -353,6 +353,105 @@ def export_conversation(phone_number):
     else:
         return jsonify({'error': 'No se pudo exportar la conversación'}), 404
 
+@app.route('/api/bots', methods=['GET'])
+@login_required
+def get_bot_blacklist():
+    """Obtener la lista negra de bots"""
+    return jsonify({
+        'blacklist': list(message_handler.bot_blacklist),
+        'settings': {
+            'max_responses_per_hour': message_handler.max_responses_per_hour,
+            'bot_detection_threshold': message_handler.bot_detection_threshold
+        }
+    })
+
+@app.route('/api/bots/<phone_number>', methods=['DELETE'])
+@login_required
+def remove_from_blacklist(phone_number):
+    """Eliminar un número de la lista negra de bots"""
+    phone_number = message_handler.normalize_phone_number(phone_number)
+    if phone_number in message_handler.bot_blacklist:
+        message_handler.bot_blacklist.remove(phone_number)
+        message_handler.save_bot_blacklist()
+        return jsonify({'success': True, 'message': 'Número eliminado de la lista negra'})
+    else:
+        return jsonify({'success': False, 'error': 'Número no encontrado en la lista negra'}), 404
+
+@app.route('/api/bots', methods=['POST'])
+@login_required
+def add_to_blacklist():
+    """Añadir un número a la lista negra de bots"""
+    data = request.json
+    if not data or 'phone_number' not in data:
+        return jsonify({'success': False, 'error': 'Número de teléfono no proporcionado'}), 400
+    
+    phone_number = message_handler.normalize_phone_number(data['phone_number'])
+    message_handler.bot_blacklist.add(phone_number)
+    message_handler.save_bot_blacklist()
+    
+    # Añadir etiqueta de bot a la conversación
+    tags = message_handler.get_conversation_tags(phone_number)
+    if "Bot" not in tags:
+        tags.append("Bot")
+        message_handler.set_conversation_tags(phone_number, tags)
+    
+    return jsonify({'success': True, 'message': 'Número añadido a la lista negra'})
+
+@app.route('/api/bots/settings', methods=['PUT'])
+@login_required
+def update_bot_settings():
+    """Actualizar configuración de detección de bots"""
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'error': 'Datos no proporcionados'}), 400
+    
+    if 'max_responses_per_hour' in data:
+        try:
+            value = int(data['max_responses_per_hour'])
+            if value > 0:
+                message_handler.max_responses_per_hour = value
+            else:
+                return jsonify({'success': False, 'error': 'El valor debe ser mayor que 0'}), 400
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Valor inválido para max_responses_per_hour'}), 400
+    
+    if 'bot_detection_threshold' in data:
+        try:
+            value = int(data['bot_detection_threshold'])
+            if value > 0:
+                message_handler.bot_detection_threshold = value
+            else:
+                return jsonify({'success': False, 'error': 'El valor debe ser mayor que 0'}), 400
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Valor inválido para bot_detection_threshold'}), 400
+    
+    return jsonify({
+        'success': True, 
+        'message': 'Configuración actualizada',
+        'settings': {
+            'max_responses_per_hour': message_handler.max_responses_per_hour,
+            'bot_detection_threshold': message_handler.bot_detection_threshold
+        }
+    })
+
+@app.route('/api/bots/analyze', methods=['POST'])
+@login_required
+def analyze_conversations():
+    """Analizar conversaciones existentes para detectar bots"""
+    try:
+        detected_bots = message_handler.analyze_existing_conversations()
+        return jsonify({
+            'success': True,
+            'message': f'Análisis completado: {len(detected_bots)} bots detectados',
+            'detected_bots': detected_bots,
+            'blacklist': list(message_handler.bot_blacklist)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al analizar conversaciones: {str(e)}'
+        }), 500
+
 @app.route('/api/messages/<phone_number>')
 @login_required
 def get_messages(phone_number):
@@ -360,13 +459,13 @@ def get_messages(phone_number):
     # Buscar la conversación en las conversaciones activas y archivadas
     conversations = message_handler.get_conversations(include_archived=True)
     
-    # Buscar la conversación por número de teléfono
-    conversation = next((conv for conv in conversations if conv['phone_number'] == phone_number), None)
+    # Normalizar el número de teléfono para la comparación
+    normalized_phone = message_handler.normalize_phone_number(phone_number)
+    
+    # Buscar la conversación con ese número de teléfono
+    conversation = next((conv for conv in conversations if conv['phone_number'] == normalized_phone), None)
     
     if conversation:
-        # Añadir etiquetas y estado
-        conversation['tags'] = message_handler.get_conversation_tags(phone_number)
-        conversation['status'] = message_handler.get_conversation_status(phone_number)
         return jsonify(conversation)
     else:
         return jsonify({"error": "Conversación no encontrada"}), 404
@@ -442,8 +541,11 @@ def webhook():
                                 
                                 # Procesamos el mensaje y generamos una respuesta usando el MessageHandler
                                 response = message_handler.process_message(from_number, "text", text, message_id, timestamp)
-                                # Enviamos la respuesta generada
-                                send_whatsapp_message(from_number, response)
+                                # Enviamos la respuesta generada solo si no es un bot (response no es None)
+                                if response:
+                                    send_whatsapp_message(from_number, response)
+                                else:
+                                    print(f"No se envía respuesta a {from_number} (posible bot)")
                             
                             elif 'image' in message:
                                 # Mensaje de imagen

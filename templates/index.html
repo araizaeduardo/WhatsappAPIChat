@@ -285,6 +285,8 @@
                                 <li><a class="dropdown-item" href="#" id="refreshConversations"><i class="fas fa-sync-alt me-2"></i>Actualizar</a></li>
                                 <li><a class="dropdown-item" href="#" id="exportConversations"><i class="fas fa-file-export me-2"></i>Exportar</a></li>
                                 <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" id="manageBotsBig"><i class="fas fa-robot me-2"></i>Gestionar Bots</a></li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="#" id="archiveSelected"><i class="fas fa-archive me-2"></i>Archivar seleccionados</a></li>
                             </ul>
                         </div>
@@ -356,6 +358,12 @@
                                 <button type="button" class="btn btn-outline-secondary" id="exportConversation">
                                     <i class="fas fa-file-export"></i>
                                 </button>
+                                <button type="button" class="btn btn-outline-danger" id="addToBlacklist" title="Marcar como bot">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="manageBots" title="Gestionar bots">
+                                    <i class="fas fa-robot"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -398,6 +406,89 @@
     </div>
 
     <audio id="notificationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3" preload="auto"></audio>
+    
+    <!-- Modal para gestionar bots -->
+    <div class="modal fade" id="botsModal" tabindex="-1" aria-labelledby="botsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="botsModalLabel">Gestión de Bots</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">Configuración</div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="maxResponsesPerHour" class="form-label">Máximo de respuestas por hora</label>
+                                        <input type="number" class="form-control" id="maxResponsesPerHour" min="1" max="100">
+                                        <div class="form-text">Límite de respuestas automáticas por hora para cada número.</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="botDetectionThreshold" class="form-label">Umbral de detección de bots</label>
+                                        <input type="number" class="form-control" id="botDetectionThreshold" min="2" max="10">
+                                        <div class="form-text">Número de mensajes similares para considerar un número como bot.</div>
+                                    </div>
+                                    <button type="button" class="btn btn-primary" id="saveSettings">Guardar configuración</button>
+                                </div>
+                            </div>
+                            <div class="card mt-3">
+                                <div class="card-header">Análisis de conversaciones</div>
+                                <div class="card-body">
+                                    <p>Analizar mensajes existentes para detectar patrones de bots automáticamente.</p>
+                                    <button type="button" class="btn btn-warning" id="analyzeConversations">
+                                        <i class="fas fa-search"></i> Analizar conversaciones
+                                    </button>
+                                    <div id="analysisResults" class="mt-3" style="display: none;">
+                                        <div class="alert alert-info">
+                                            <span id="analysisMessage"></span>
+                                        </div>
+                                        <div id="detectedBotsList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">Añadir número a la lista negra</div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="blacklistNumber" class="form-label">Número de teléfono</label>
+                                        <input type="text" class="form-control" id="blacklistNumber" placeholder="Ej: 5215512345678">
+                                    </div>
+                                    <button type="button" class="btn btn-danger" id="addBlacklistNumber">Añadir a lista negra</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">Lista negra de bots</div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Número</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="blacklistTable">
+                                        <!-- La lista de bots se cargará aquí dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         // Función para reproducir el sonido de notificación
         function playNotificationSound() {
@@ -636,7 +727,12 @@
         // Función para cargar los mensajes de una conversación
         function loadMessages(phoneNumber) {
             fetch(`/api/messages/${phoneNumber}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al cargar los mensajes');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     const messageContainer = document.getElementById('messageContainer');
                     messageContainer.innerHTML = '';
@@ -690,11 +786,10 @@
                                 formattedTime = 'Fecha desconocida';
                             }
                             
-                            // Determinar el icono según el canal de comunicación (por defecto WhatsApp)
+                            // Determinar el icono según el origen del mensaje
                             let sourceIcon = '';
-                            if (message.direction === 'received') {
-                                const messageSource = message.source || 'whatsapp'; // Por defecto WhatsApp si no se especifica
-                                
+                            if (message.source) {
+                                const messageSource = message.source;
                                 switch(messageSource) {
                                     case 'whatsapp':
                                         sourceIcon = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png" class="message-source-icon source-whatsapp" alt="WhatsApp" title="Mensaje de WhatsApp">';
@@ -712,7 +807,7 @@
                             
                             messageDiv.innerHTML = `
                                 <div>${message.content}</div>
-                                <span class="message-time">${sourceIcon}${formattedTime}</span>
+                                <span class="message-time">${sourceIcon} ${formattedTime}</span>
                             `;
                             
                             messageContainer.appendChild(messageDiv);
@@ -721,13 +816,32 @@
                         // Desplazar al final de los mensajes
                         messageContainer.scrollTop = messageContainer.scrollHeight;
                     } else {
-                        messageContainer.innerHTML = '<div class="text-center text-muted">No hay mensajes en esta conversación</div>';
+                        messageContainer.innerHTML = `
+                            <div class="text-center text-muted">
+                                <p>No hay mensajes en esta conversación</p>
+                            </div>
+                        `;
+                    }
+                    
+                    // Si la conversación tiene etiquetas, cargarlas
+                    if (data.tags) {
+                        conversationTags[phoneNumber] = data.tags;
+                        loadConversationTags(phoneNumber);
+                    }
+                    
+                    // Si la conversación tiene estado, actualizarlo
+                    if (data.status) {
+                        conversationStatus[phoneNumber] = data.status;
+                        updateCurrentStatus(phoneNumber);
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar los mensajes:', error);
-                    document.getElementById('messageContainer').innerHTML = 
-                        '<div class="text-center text-danger">Error al cargar los mensajes</div>';
+                    document.getElementById('messageContainer').innerHTML = `
+                        <div class="text-center text-danger">
+                            <p>Error al cargar los mensajes: ${error.message}</p>
+                        </div>
+                    `;
                 });
         }
         
@@ -1258,5 +1372,242 @@
                 };
             }
         }
+        
+        // Sistema de gestión de bots
+        let botSettings = {
+            max_responses_per_hour: 10,
+            bot_detection_threshold: 3
+        };
+        let blacklistedNumbers = [];
+        
+        // Función para cargar la lista negra de bots
+        function loadBotBlacklist() {
+            fetch('/api/bots')
+                .then(response => response.json())
+                .then(data => {
+                    blacklistedNumbers = data.blacklist;
+                    botSettings = data.settings;
+                    
+                    // Actualizar la interfaz
+                    updateBlacklistTable();
+                    
+                    // Actualizar campos de configuración
+                    document.getElementById('maxResponsesPerHour').value = botSettings.max_responses_per_hour;
+                    document.getElementById('botDetectionThreshold').value = botSettings.bot_detection_threshold;
+                })
+                .catch(error => {
+                    console.error('Error al cargar la lista negra de bots:', error);
+                });
+        }
+        
+        // Función para actualizar la tabla de la lista negra
+        function updateBlacklistTable() {
+            const tableBody = document.getElementById('blacklistTable');
+            tableBody.innerHTML = '';
+            
+            if (blacklistedNumbers.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="2" class="text-center">No hay números en la lista negra</td></tr>';
+                return;
+            }
+            
+            blacklistedNumbers.forEach(number => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${number}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger remove-from-blacklist" data-number="${number}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Añadir eventos a los botones de eliminar
+            document.querySelectorAll('.remove-from-blacklist').forEach(button => {
+                button.addEventListener('click', function() {
+                    const number = this.getAttribute('data-number');
+                    removeFromBlacklist(number);
+                });
+            });
+        }
+        
+        // Función para añadir un número a la lista negra
+        function addToBlacklist(phoneNumber) {
+            fetch('/api/bots', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phone_number: phoneNumber })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Número añadido a la lista negra de bots');
+                    loadBotBlacklist();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error al añadir a la lista negra:', error);
+                alert('Error al añadir el número a la lista negra');
+            });
+        }
+        
+        // Función para eliminar un número de la lista negra
+        function removeFromBlacklist(phoneNumber) {
+            fetch(`/api/bots/${phoneNumber}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Número eliminado de la lista negra');
+                    loadBotBlacklist();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error al eliminar de la lista negra:', error);
+                alert('Error al eliminar el número de la lista negra');
+            });
+        }
+        
+        // Función para guardar la configuración de bots
+        function saveBotSettings() {
+            const maxResponses = document.getElementById('maxResponsesPerHour').value;
+            const threshold = document.getElementById('botDetectionThreshold').value;
+            
+            fetch('/api/bots/settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    max_responses_per_hour: maxResponses,
+                    bot_detection_threshold: threshold
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuración guardada correctamente');
+                    botSettings = data.settings;
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error al guardar la configuración:', error);
+                alert('Error al guardar la configuración');
+            });
+        }
+        
+        // Evento para abrir el modal de gestión de bots
+        document.getElementById('manageBots').addEventListener('click', function() {
+            loadBotBlacklist();
+            const botsModal = new bootstrap.Modal(document.getElementById('botsModal'));
+            botsModal.show();
+        });
+        
+        // Evento para el botón grande de gestión de bots
+        document.getElementById('manageBotsBig').addEventListener('click', function() {
+            loadBotBlacklist();
+            const botsModal = new bootstrap.Modal(document.getElementById('botsModal'));
+            botsModal.show();
+        });
+        
+        // Evento para añadir un número a la lista negra desde el modal
+        document.getElementById('addBlacklistNumber').addEventListener('click', function() {
+            const number = document.getElementById('blacklistNumber').value.trim();
+            if (number) {
+                addToBlacklist(number);
+                document.getElementById('blacklistNumber').value = '';
+            } else {
+                alert('Por favor, introduce un número válido');
+            }
+        });
+        
+        // Evento para guardar la configuración de bots
+        document.getElementById('saveSettings').addEventListener('click', saveBotSettings);
+        
+        // Evento para marcar la conversación actual como bot
+        document.getElementById('addToBlacklist').addEventListener('click', function() {
+            if (currentPhoneNumber) {
+                if (confirm(`¿Estás seguro de que quieres marcar ${currentPhoneNumber} como bot? No recibirá más respuestas automáticas.`)) {
+                    addToBlacklist(currentPhoneNumber);
+                }
+            } else {
+                alert('Por favor, selecciona una conversación primero');
+            }
+        });
+        
+        // Función para analizar conversaciones existentes
+        function analyzeExistingConversations() {
+            // Mostrar indicador de carga
+            document.getElementById('analysisResults').style.display = 'block';
+            document.getElementById('analysisMessage').textContent = 'Analizando conversaciones...';
+            document.getElementById('detectedBotsList').innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+            document.getElementById('analyzeConversations').disabled = true;
+            
+            fetch('/api/bots/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar mensaje de resultados
+                    document.getElementById('analysisMessage').textContent = data.message;
+                    
+                    // Mostrar bots detectados
+                    const detectedBotsList = document.getElementById('detectedBotsList');
+                    if (data.detected_bots.length > 0) {
+                        let html = '<div class="mt-3"><h6>Bots detectados:</h6><ul class="list-group">';
+                        data.detected_bots.forEach(bot => {
+                            html += `
+                                <li class="list-group-item">
+                                    <div><strong>${bot.phone_number}</strong></div>
+                                    <div class="text-muted small">Mensaje repetido: "${bot.message.substring(0, 50)}${bot.message.length > 50 ? '...' : ''}"</div>
+                                    <div class="text-danger small">Repeticiones: ${bot.repetitions}</div>
+                                </li>
+                            `;
+                        });
+                        html += '</ul></div>';
+                        detectedBotsList.innerHTML = html;
+                    } else {
+                        detectedBotsList.innerHTML = '<div class="alert alert-success mt-3">No se detectaron nuevos bots.</div>';
+                    }
+                    
+                    // Actualizar la tabla de la lista negra
+                    blacklistedNumbers = data.blacklist;
+                    updateBlacklistTable();
+                } else {
+                    document.getElementById('analysisMessage').textContent = `Error: ${data.error}`;
+                    document.getElementById('detectedBotsList').innerHTML = '';
+                }
+                
+                // Habilitar el botón nuevamente
+                document.getElementById('analyzeConversations').disabled = false;
+            })
+            .catch(error => {
+                console.error('Error al analizar conversaciones:', error);
+                document.getElementById('analysisMessage').textContent = 'Error al analizar conversaciones';
+                document.getElementById('detectedBotsList').innerHTML = '';
+                document.getElementById('analyzeConversations').disabled = false;
+            });
+        }
+        
+        // Evento para analizar conversaciones existentes
+        document.getElementById('analyzeConversations').addEventListener('click', function() {
+            if (confirm('Este proceso analizará todas las conversaciones existentes para detectar patrones de bots. ¿Deseas continuar?')) {
+                analyzeExistingConversations();
+            }
+        });
     </script>
 {% endblock %}
