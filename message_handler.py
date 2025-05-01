@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+import shutil
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 from tours_db import search_tours, get_tour_by_id, format_tour_info, get_all_tours
